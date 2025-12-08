@@ -422,11 +422,11 @@ class AI_Editorial_Calendar {
             'timeout' => 30,
         ]);
 
-        $body = json_decode(wp_remote_retrieve_body($response), true);
-        
         if (is_wp_error($response)) {
             return $response;
         }
+
+        $body = json_decode(wp_remote_retrieve_body($response), true);
 
         if (isset($body['error'])) {
             return new WP_Error('api_error', $body['error']['message'] ?? __('API error', 'ai-editorial-calendar'));
@@ -457,11 +457,11 @@ class AI_Editorial_Calendar {
             'timeout' => 30,
         ]);
 
-        $body = json_decode(wp_remote_retrieve_body($response), true);
-
         if (is_wp_error($response)) {
             return $response;
         }
+
+        $body = json_decode(wp_remote_retrieve_body($response), true);
 
         if (isset($body['error'])) {
             return new WP_Error('api_error', $body['error']['message'] ?? __('API error', 'ai-editorial-calendar'));
