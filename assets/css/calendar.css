@@ -748,8 +748,27 @@
     background: var(--color-bg);
 }
 
+.aiec-list-table tbody tr.aiec-draggable {
+    cursor: grab;
+    user-select: none;
+}
+
+.aiec-list-table tbody tr.aiec-draggable:active {
+    cursor: grabbing;
+}
+
+.aiec-list-table tbody tr.aiec-draggable .aiec-drag-handle {
+    pointer-events: auto;
+}
+
 .aiec-list-table tbody tr.aiec-dragging {
     opacity: 0.5;
+    cursor: grabbing;
+}
+
+.aiec-list-table tbody tr.aiec-dragging a,
+.aiec-list-table tbody tr.aiec-dragging button {
+    pointer-events: none;
 }
 
 .aiec-list-table tbody tr.aiec-drag-over {

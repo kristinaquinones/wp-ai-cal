@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-01-XX
+
+### Added
+
+- List view with table format for all posts
+- Search and filter functionality in list view (by status, post type, and search term)
+- Pagination in list view
+- Drag and drop scheduling in list view (drag rows to reorder and update dates)
+- AI Suggestion meta box in post editor for drafts created from calendar
+- "Generate an Outline" button in AI Suggestion meta box
+- Automatic outline generation with HTML-formatted structure (H2/H3 headings, bullet points)
+- Outline generation optimized for token efficiency
+
+### Fixed
+
+- Drag and drop not working in list view (fixed event handling and link interference)
+- Improved drag handle visibility and cursor states
+
+### Changed
+
+- AI suggestion descriptions are now visible in post editor meta box (previously hidden)
+- Outline generation prompt optimized to reduce token usage by ~62%
+- Reduced outline generation max tokens from 2000 to 1500 (still sufficient for detailed outlines)
+
 ## [1.0.0] - 2025-12-08
 
 ### Added
