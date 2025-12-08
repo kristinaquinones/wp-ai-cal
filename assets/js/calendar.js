@@ -358,8 +358,7 @@
             if (isPast) {
                 $('.aiec-new-post, .aiec-get-suggestions').hide();
             } else {
-                const newPostUrl = `${window.location.origin}/wp-admin/post-new.php`;
-                $('.aiec-new-post').attr('href', newPostUrl).show();
+                $('.aiec-new-post').attr('href', aiecData.newPostUrl).show();
                 $('.aiec-get-suggestions').show();
             }
 
@@ -425,7 +424,7 @@
                 return `<div class="aiec-suggestion-item">
                     <strong>${this.escapeHtml(title)}</strong><br>
                     ${desc ? this.escapeHtml(desc) + '<br>' : ''}
-                    <button type="button" class="button button-small aiec-create-draft" data-title="${titleData}" data-desc="${descData}">Create Draft</button>
+                    <button type="button" class="aiec-btn aiec-btn-small aiec-create-draft" data-title="${titleData}" data-desc="${descData}">Create Draft</button>
                 </div>`;
             }).join('');
         }

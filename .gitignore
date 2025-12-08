@@ -1,6 +1,7 @@
 # Project-specific
 _internal_docs/
 wp-ai-editorial-calendar.zip
+FUTURE_DEVELOPMENT.md
 
 # OS-specific files
 .DS_Store
@@ -23,6 +24,7 @@ desktop.ini
 .settings/
 *.sublime-project
 *.sublime-workspace
+*.claude
 
 # Dependency directories
 node_modules/

@@ -1,5 +1,10 @@
 # AI Editorial Calendar
 
+[![WordPress](https://img.shields.io/badge/WordPress-5.0%2B-blue.svg)](https://wordpress.org/)
+[![PHP](https://img.shields.io/badge/PHP-7.4%2B-777BB4.svg)](https://www.php.net/)
+[![License](https://img.shields.io/badge/License-GPL%20v2%2B-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
+[![Open Source](https://img.shields.io/badge/Open%20Source-Yes-success.svg)](https://opensource.org/)
+
 A lightweight WordPress plugin that provides an editorial calendar with personalized AI content suggestions. Connect your own AI account to get intelligent post ideas based on your site's context and existing content.
 
 ## Features
@@ -116,3 +121,14 @@ GPL v2 or later
 ## Contributing
 
 Contributions are welcome! Please open an issue or submit a pull request.
+
+## Attribution
+
+**AI Editorial Calendar**  
+Copyright © 2025 [Kristina Quinones](https://github.com/kristinaquiones)
+
+This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the [GNU General Public License](https://www.gnu.org/licenses/gpl-2.0.html) for more details.
+
+**Plugin Repository:** [https://github.com/kristinaquiones/wp-ai-cal](https://github.com/kristinaquiones/wp-ai-cal)
