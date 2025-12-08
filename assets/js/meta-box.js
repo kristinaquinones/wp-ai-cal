@@ -37,11 +37,39 @@
                         const outline = response.data.outline;
                         
                         // Try to update the editor UI (content is already saved server-side)
-                        // Gutenberg editor
+                        // Gutenberg editor - convert markdown-style headings to HTML blocks
                         if (window.wp && window.wp.data && window.wp.blocks) {
                             try {
+                                // Convert markdown to HTML for block parsing
+                                let htmlContent = outline
+                                    .split('\n')
+                                    .map(line => {
+                                        line = line.trim();
+                                        if (!line) return '';
+                                        // Markdown headings
+                                        if (line.match(/^##\s+(.+)$/)) {
+                                            return '<h2>' + line.replace(/^##\s+/, '') + '</h2>';
+                                        }
+                                        if (line.match(/^###\s+(.+)$/)) {
+                                            return '<h3>' + line.replace(/^###\s+/, '') + '</h3>';
+                                        }
+                                        // Bullet points
+                                        if (line.match(/^-\s+(.+)$/)) {
+                                            return '<li>' + line.replace(/^-\s+/, '') + '</li>';
+                                        }
+                                        // Regular text
+                                        return '<p>' + line + '</p>';
+                                    })
+                                    .filter(line => line)
+                                    .join('\n');
+                                
+                                // Wrap consecutive <li> tags in <ul>
+                                htmlContent = htmlContent.replace(/(<li>.*?<\/li>\n?)+/g, function(match) {
+                                    return '<ul>' + match.replace(/\n/g, '') + '</ul>';
+                                });
+                                
                                 const blocks = window.wp.blocks.rawHandler({
-                                    HTML: outline
+                                    HTML: htmlContent
                                 });
                                 if (blocks && blocks.length > 0) {
                                     window.wp.data.dispatch('core/block-editor').resetBlocks(blocks);
