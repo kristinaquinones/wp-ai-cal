@@ -75,8 +75,8 @@ Navigate to **Editorial Calendar** in the WordPress admin menu. The calendar dis
 - Color-coded status:
   - **Green** - Published
   - **Yellow** - Draft
-  - **Blue** - Pending Review
-  - **Gray** - Scheduled
+  - **Cyan** - Pending Review
+  - **Purple** - Scheduled
 
 ### Drag and Drop Scheduling
 
