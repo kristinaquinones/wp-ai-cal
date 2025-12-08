@@ -635,13 +635,31 @@
             this.draggedPost = this.listPosts.find(p => p.id === postId);
             if (!this.draggedPost) return;
             
+            // Prevent link navigation during drag
+            const $target = $(e.target);
+            if ($target.is('a, button') || $target.closest('a, button').length) {
+                e.preventDefault();
+            }
+            
             e.originalEvent.dataTransfer.effectAllowed = 'move';
+            e.originalEvent.dataTransfer.setData('text/plain', postId.toString());
             $row.addClass('aiec-dragging');
+            
+            // Prevent link clicks during drag
+            $row.find('a').on('click.drag', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            });
         },
 
         handleListDragEnd: function(e) {
-            $(e.currentTarget).removeClass('aiec-dragging');
+            const $row = $(e.currentTarget);
+            $row.removeClass('aiec-dragging');
             $('.aiec-list-row').removeClass('aiec-drag-over');
+            
+            // Re-enable link clicks after drag ends
+            $row.find('a').off('click.drag');
+            
             this.draggedPost = null;
         },
 

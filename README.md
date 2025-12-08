@@ -10,9 +10,12 @@ A lightweight WordPress plugin that provides an editorial calendar with personal
 ## Features
 
 - **Visual Calendar** - Monthly grid view of all posts and pages with color-coded status indicators
-- **Drag and Drop Scheduling** - Reschedule drafts and scheduled posts by dragging them to a new date
+- **List View** - Table view with search, filtering, and pagination for all posts
+- **Drag and Drop Scheduling** - Reschedule drafts and scheduled posts by dragging them to a new date (works in both calendar and list views)
 - **AI Content Suggestions** - Get 3 personalized post ideas for any future date
 - **One-Click Draft Creation** - Create drafts directly from AI suggestions
+- **AI Suggestion Meta Box** - View AI suggestions in the post editor for drafts created from the calendar
+- **Generate Outline** - Automatically generate a detailed blog post outline from AI suggestions
 - **Multi-Provider Support** - Works with OpenAI, Anthropic, or Google AI
 - **Minimal Configuration** - Just 3 settings to get started
 
@@ -69,22 +72,35 @@ List topics, phrases, or approaches the AI should not suggest. Example:
 
 ### Viewing the Calendar
 
-Navigate to **Editorial Calendar** in the WordPress admin menu. The calendar displays:
+Navigate to **Editorial Calendar** in the WordPress admin menu. You can switch between two views:
 
-- All posts and pages for the current month
+**Calendar View:**
+- Monthly grid view of all posts and pages
 - Color-coded status:
   - **Green** - Published
   - **Yellow** - Draft
   - **Cyan** - Pending Review
   - **Purple** - Scheduled
 
+**List View:**
+- Table format showing all posts with pagination
+- Search and filter by status or post type
+- Sortable columns for date, title, status, and category
+- Drag and drop to reorder posts and update dates
+
 ### Drag and Drop Scheduling
 
-Easily reschedule your content by dragging posts to a new date:
+Easily reschedule your content by dragging posts to a new date. Works in both Calendar and List views:
 
+**Calendar View:**
 1. Hover over a draft, pending, or scheduled post (cursor changes to grab icon)
 2. Drag the post to your desired date
 3. Drop it on the target day - the post date updates instantly
+
+**List View:**
+1. Hover over a draggable row (indicated by the drag handle: ⋮⋮)
+2. Click and drag the row to another draggable row
+3. Drop it - the post date updates to match the target row's date
 
 **Note:** Published posts cannot be dragged to prevent accidental changes to live content.
 
@@ -95,9 +111,24 @@ Easily reschedule your content by dragging posts to a new date:
 3. The AI will analyze your recent content and generate 3 unique post ideas
 4. Click **Create Draft** on any suggestion to instantly create a draft post
 
-The draft will be scheduled for a random time on the selected date, with the AI's description saved as a hidden note in the post editor.
+The draft will be scheduled for a random time on the selected date, with the AI's description saved in the post editor.
 
 **Note:** AI suggestions are only available for today and future dates. Past dates are view-only for existing content.
+
+### AI Suggestion Meta Box
+
+When you create a draft from an AI suggestion, a special meta box appears in the post editor:
+
+- **View AI Suggestion** - See the original AI-generated description that inspired the post
+- **Generate an Outline** - Click to automatically create a detailed blog post outline with:
+  - Introduction section
+  - 3-5 main body sections with subheadings
+  - Bullet points for key points
+  - Conclusion with call-to-action
+
+The outline is formatted in HTML and inserted directly into your post content, ready for you to expand into a full article.
+
+**Note:** The AI Suggestion meta box only appears for drafts that were created from the AI Editorial Calendar.
 
 ## Supported AI Models
 

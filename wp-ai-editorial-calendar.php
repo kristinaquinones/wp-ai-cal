@@ -38,6 +38,7 @@ class AI_Editorial_Calendar {
         add_action('wp_ajax_aiec_update_post_date', [$this, 'ajax_update_post_date']);
         add_action('admin_post_aiec_uninstall', [$this, 'handle_uninstall']);
         add_action('wp_ajax_aiec_create_draft', [$this, 'ajax_create_draft']);
+        add_action('wp_ajax_aiec_generate_outline', [$this, 'ajax_generate_outline']);
         add_filter('plugin_action_links_' . plugin_basename(__FILE__), [$this, 'add_plugin_action_links']);
         add_action('admin_bar_menu', [$this, 'add_admin_bar_link'], 100);
         add_action('post_submitbox_misc_actions', [$this, 'add_editor_return_link']);
@@ -134,47 +135,67 @@ class AI_Editorial_Calendar {
     }
 
     public function enqueue_assets($hook) {
-        if (strpos($hook, 'ai-editorial-calendar') === false && strpos($hook, 'aiec-settings') === false) {
-            return;
+        // Enqueue for calendar and settings pages
+        if (strpos($hook, 'ai-editorial-calendar') !== false || strpos($hook, 'aiec-settings') !== false) {
+            // Enqueue Google Fonts
+            wp_enqueue_style(
+                'aiec-fonts',
+                'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap',
+                [],
+                null
+            );
+            
+            wp_enqueue_style('aiec-styles', AIEC_PLUGIN_URL . 'assets/css/calendar.css', ['aiec-fonts'], AIEC_VERSION);
+            wp_enqueue_script('aiec-calendar', AIEC_PLUGIN_URL . 'assets/js/calendar.js', ['jquery'], AIEC_VERSION, true);
+
+            wp_localize_script('aiec-calendar', 'aiecData', [
+                'ajaxUrl' => admin_url('admin-ajax.php'),
+                'adminUrl' => admin_url('admin.php'),
+                'newPostUrl' => admin_url('post-new.php'),
+                'nonce' => wp_create_nonce('aiec_nonce'),
+                'hasApiKey' => !empty($this->get_api_key()),
+                'strings' => [
+                    'getSuggestions' => __('Get AI Suggestions', 'ai-editorial-calendar'),
+                    'loading' => __('Loading...', 'ai-editorial-calendar'),
+                    'noApiKey' => __('Please configure your AI API key in Settings.', 'ai-editorial-calendar'),
+                    'months' => [
+                        __('January', 'ai-editorial-calendar'),
+                        __('February', 'ai-editorial-calendar'),
+                        __('March', 'ai-editorial-calendar'),
+                        __('April', 'ai-editorial-calendar'),
+                        __('May', 'ai-editorial-calendar'),
+                        __('June', 'ai-editorial-calendar'),
+                        __('July', 'ai-editorial-calendar'),
+                        __('August', 'ai-editorial-calendar'),
+                        __('September', 'ai-editorial-calendar'),
+                        __('October', 'ai-editorial-calendar'),
+                        __('November', 'ai-editorial-calendar'),
+                        __('December', 'ai-editorial-calendar'),
+                    ],
+                ]
+            ]);
         }
 
-        // Enqueue Google Fonts
-        wp_enqueue_style(
-            'aiec-fonts',
-            'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap',
-            [],
-            null
-        );
-        
-        wp_enqueue_style('aiec-styles', AIEC_PLUGIN_URL . 'assets/css/calendar.css', ['aiec-fonts'], AIEC_VERSION);
-        wp_enqueue_script('aiec-calendar', AIEC_PLUGIN_URL . 'assets/js/calendar.js', ['jquery'], AIEC_VERSION, true);
-
-        wp_localize_script('aiec-calendar', 'aiecData', [
-            'ajaxUrl' => admin_url('admin-ajax.php'),
-            'adminUrl' => admin_url('admin.php'),
-            'newPostUrl' => admin_url('post-new.php'),
-            'nonce' => wp_create_nonce('aiec_nonce'),
-            'hasApiKey' => !empty($this->get_api_key()),
-            'strings' => [
-                'getSuggestions' => __('Get AI Suggestions', 'ai-editorial-calendar'),
-                'loading' => __('Loading...', 'ai-editorial-calendar'),
-                'noApiKey' => __('Please configure your AI API key in Settings.', 'ai-editorial-calendar'),
-                'months' => [
-                    __('January', 'ai-editorial-calendar'),
-                    __('February', 'ai-editorial-calendar'),
-                    __('March', 'ai-editorial-calendar'),
-                    __('April', 'ai-editorial-calendar'),
-                    __('May', 'ai-editorial-calendar'),
-                    __('June', 'ai-editorial-calendar'),
-                    __('July', 'ai-editorial-calendar'),
-                    __('August', 'ai-editorial-calendar'),
-                    __('September', 'ai-editorial-calendar'),
-                    __('October', 'ai-editorial-calendar'),
-                    __('November', 'ai-editorial-calendar'),
-                    __('December', 'ai-editorial-calendar'),
-                ],
-            ]
-        ]);
+        // Enqueue for post editor pages
+        if (in_array($hook, ['post.php', 'post-new.php'])) {
+            global $post;
+            
+            // Only enqueue if this post was created from the calendar
+            if ($post && get_post_meta($post->ID, '_aiec_from_calendar', true)) {
+                wp_enqueue_script('aiec-meta-box', AIEC_PLUGIN_URL . 'assets/js/meta-box.js', ['jquery'], AIEC_VERSION, true);
+                
+                wp_localize_script('aiec-meta-box', 'aiecMetaBox', [
+                    'ajaxUrl' => admin_url('admin-ajax.php'),
+                    'nonce' => wp_create_nonce('aiec_generate_outline'),
+                    'postId' => $post->ID,
+                    'strings' => [
+                        'generating' => __('Generating outline...', 'ai-editorial-calendar'),
+                        'success' => __('Outline generated successfully!', 'ai-editorial-calendar'),
+                        'error' => __('Error generating outline. Please try again.', 'ai-editorial-calendar'),
+                    ]
+                ]);
+            }
+        }
     }
 
     public function render_calendar_page() {
@@ -230,6 +251,13 @@ class AI_Editorial_Calendar {
     }
 
     public function add_ai_suggestion_meta_box() {
+        global $post;
+        
+        // Only show meta box if this post was created from the AI Editorial Calendar
+        if (!$post || !get_post_meta($post->ID, '_aiec_from_calendar', true)) {
+            return;
+        }
+
         add_meta_box(
             'aiec-ai-suggestion',
             __('AI Suggestion', 'ai-editorial-calendar'),
@@ -252,7 +280,15 @@ class AI_Editorial_Calendar {
         echo '<p style="margin: 0; color: #333; line-height: 1.6;">' . esc_html($suggestion) . '</p>';
         echo '</div>';
         
-        wp_nonce_field('aiec_save_suggestion', 'aiec_suggestion_nonce');
+        echo '<div style="margin-top: 12px;">';
+        echo '<button type="button" id="aiec-generate-outline" class="button button-primary" data-post-id="' . esc_attr($post->ID) . '">';
+        echo esc_html__('Generate an Outline', 'ai-editorial-calendar');
+        echo '</button>';
+        echo '<span class="spinner" id="aiec-outline-spinner" style="float: none; margin-left: 8px; visibility: hidden;"></span>';
+        echo '</div>';
+        echo '<div id="aiec-outline-message" style="margin-top: 8px; display: none;"></div>';
+        
+        wp_nonce_field('aiec_generate_outline', 'aiec_outline_nonce');
     }
 
     public function handle_uninstall() {
@@ -473,7 +509,89 @@ class AI_Editorial_Calendar {
             update_post_meta($post_id, '_aiec_ai_suggestion', sanitize_textarea_field($description));
         }
 
+        // Flag that this draft was created from the AI Editorial Calendar
+        update_post_meta($post_id, '_aiec_from_calendar', '1');
+
         wp_send_json_success(['id' => $post_id]);
+    }
+
+    public function ajax_generate_outline() {
+        check_ajax_referer('aiec_generate_outline', 'nonce');
+
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error(__('Unauthorized', 'ai-editorial-calendar'));
+        }
+
+        $post_id = intval($_POST['post_id'] ?? 0);
+        if (!$post_id) {
+            wp_send_json_error(__('Invalid post ID', 'ai-editorial-calendar'));
+        }
+
+        // Verify user can edit this post
+        if (!current_user_can('edit_post', $post_id)) {
+            wp_send_json_error(__('You do not have permission to edit this post', 'ai-editorial-calendar'));
+        }
+
+        $api_key = $this->get_api_key();
+        if (empty($api_key)) {
+            wp_send_json_error(__('API key not configured', 'ai-editorial-calendar'));
+        }
+
+        $post = get_post($post_id);
+        if (!$post) {
+            wp_send_json_error(__('Post not found', 'ai-editorial-calendar'));
+        }
+
+        // Get the AI suggestion description
+        $suggestion = get_post_meta($post_id, '_aiec_ai_suggestion', true);
+        if (empty($suggestion)) {
+            wp_send_json_error(__('No AI suggestion found for this post', 'ai-editorial-calendar'));
+        }
+
+        $provider = get_option('aiec_ai_provider', 'openai');
+        $context = get_option('aiec_site_context', '');
+        $tone = get_option('aiec_tone', '');
+
+        // Build the outline generation prompt
+        $prompt = $this->build_outline_prompt($post->post_title, $suggestion, $context, $tone);
+
+        // Call AI API to generate outline (1500 tokens should be sufficient for detailed outline)
+        $outline = $this->call_ai_api($provider, $api_key, $prompt, 1500);
+
+        if (is_wp_error($outline)) {
+            wp_send_json_error($outline->get_error_message());
+        }
+
+        // Update post content with the generated outline
+        wp_update_post([
+            'ID' => $post_id,
+            'post_content' => wp_kses_post($outline),
+        ]);
+
+        wp_send_json_success([
+            'outline' => $outline,
+            'message' => __('Outline generated successfully!', 'ai-editorial-calendar'),
+        ]);
+    }
+
+    private function build_outline_prompt($title, $suggestion, $context, $tone) {
+        $prompt = "Create a blog post outline:\n\n";
+        $prompt .= "Title: " . sanitize_text_field($title) . "\n";
+        $prompt .= "Description: " . sanitize_textarea_field($suggestion) . "\n";
+
+        if ($context) {
+            $prompt .= "Context: " . sanitize_textarea_field($context) . "\n";
+        }
+
+        if ($tone) {
+            $prompt .= "Tone: " . sanitize_text_field($tone) . "\n";
+        }
+
+        $prompt .= "\nFormat: HTML with <h2> for main sections, <h3> for subsections, <ul><li> for bullets.\n";
+        $prompt .= "Structure: Intro, 3-5 main sections (each with 2-4 H3 subsections and 2-3 bullet points), Conclusion with CTA.\n";
+        $prompt .= "Make headings action-oriented and bullets specific/actionable.";
+
+        return $prompt;
     }
 
     public function ajax_get_suggestions() {
@@ -551,18 +669,18 @@ class AI_Editorial_Calendar {
         return $prompt;
     }
 
-    private function call_ai_api($provider, $api_key, $prompt) {
+    private function call_ai_api($provider, $api_key, $prompt, $max_tokens = 500) {
         $response = null;
 
         switch ($provider) {
             case 'openai':
-                $response = $this->call_openai($api_key, $prompt);
+                $response = $this->call_openai($api_key, $prompt, $max_tokens);
                 break;
             case 'anthropic':
-                $response = $this->call_anthropic($api_key, $prompt);
+                $response = $this->call_anthropic($api_key, $prompt, $max_tokens);
                 break;
             case 'google':
-                $response = $this->call_google($api_key, $prompt);
+                $response = $this->call_google($api_key, $prompt, $max_tokens);
                 break;
             default:
                 return new WP_Error('invalid_provider', __('Invalid AI provider', 'ai-editorial-calendar'));
@@ -571,7 +689,7 @@ class AI_Editorial_Calendar {
         return $response;
     }
 
-    private function call_openai($api_key, $prompt) {
+    private function call_openai($api_key, $prompt, $max_tokens = 500) {
         $response = wp_remote_post('https://api.openai.com/v1/chat/completions', [
             'headers' => [
                 'Authorization' => 'Bearer ' . $api_key,
@@ -582,7 +700,7 @@ class AI_Editorial_Calendar {
                 'messages' => [
                     ['role' => 'user', 'content' => $prompt]
                 ],
-                'max_tokens' => 500,
+                'max_tokens' => $max_tokens,
             ]),
             'timeout' => 30,
         ]);
@@ -605,7 +723,7 @@ class AI_Editorial_Calendar {
         return $content;
     }
 
-    private function call_anthropic($api_key, $prompt) {
+    private function call_anthropic($api_key, $prompt, $max_tokens = 500) {
         $response = wp_remote_post('https://api.anthropic.com/v1/messages', [
             'headers' => [
                 'x-api-key' => $api_key,
@@ -614,7 +732,7 @@ class AI_Editorial_Calendar {
             ],
             'body' => json_encode([
                 'model' => 'claude-3-5-haiku-latest',
-                'max_tokens' => 500,
+                'max_tokens' => $max_tokens,
                 'messages' => [
                     ['role' => 'user', 'content' => $prompt]
                 ],
