@@ -553,10 +553,13 @@ class AI_Editorial_Calendar {
             wp_send_json_error($outline->get_error_message());
         }
 
+        // Clean the outline: strip HTML, markdown, and extraneous characters
+        $outline = $this->clean_outline($outline);
+
         // Update post content with the generated outline
         wp_update_post([
             'ID' => $post_id,
-            'post_content' => wp_kses_post($outline),
+            'post_content' => $outline,
         ]);
 
         wp_send_json_success([
@@ -578,11 +581,55 @@ class AI_Editorial_Calendar {
             $prompt .= "Tone: " . sanitize_text_field($tone) . "\n";
         }
 
-        $prompt .= "\nFormat: HTML with <h2> for main sections, <h3> for subsections, <ul><li> for bullets.\n";
-        $prompt .= "Structure: Intro, 3-5 main sections (each with 2-4 H3 subsections and 2-3 bullet points), Conclusion with CTA.\n";
-        $prompt .= "Make headings action-oriented and bullets specific/actionable.";
+        $prompt .= "\nFormat: Plain text only. Use markdown-style headings (## for main sections, ### for subsections) and - for bullet points.\n";
+        $prompt .= "Structure: Intro, 3-5 main sections (each with 2-4 subsections and 2-3 bullet points), Conclusion with CTA.\n";
+        $prompt .= "Make headings action-oriented and bullets specific/actionable. Output only the outline, no explanations or metadata.";
 
         return $prompt;
+    }
+
+    private function clean_outline($outline) {
+        // Remove HTML tags
+        $outline = strip_tags($outline);
+        
+        // Remove markdown code blocks if present
+        $outline = preg_replace('/```[\s\S]*?```/', '', $outline);
+        
+        // Remove markdown formatting characters that might interfere
+        $outline = preg_replace('/\*\*(.*?)\*\*/', '$1', $outline); // Bold
+        $outline = preg_replace('/\*(.*?)\*/', '$1', $outline); // Italic
+        $outline = preg_replace('/`(.*?)`/', '$1', $outline); // Inline code
+        
+        // Clean up extra whitespace
+        $outline = preg_replace('/\n{3,}/', "\n\n", $outline); // Max 2 consecutive newlines
+        $outline = preg_replace('/[ \t]+/', ' ', $outline); // Multiple spaces to single space
+        
+        // Remove common AI response prefixes/suffixes
+        $outline = preg_replace('/^(Here\'s|Here is|Below is|I\'ll create|I\'ve created|This outline|The outline)[\s\S]*?:\s*/i', '', $outline);
+        $outline = preg_replace('/\n*(Note:|Remember:|Tip:)[\s\S]*$/i', '', $outline);
+        
+        // Trim whitespace
+        $outline = trim($outline);
+        
+        // Ensure it starts with content, not metadata
+        $lines = explode("\n", $outline);
+        $start_index = 0;
+        foreach ($lines as $i => $line) {
+            $line = trim($line);
+            // Skip empty lines and common AI prefixes at start
+            if (empty($line) || preg_match('/^(Title|Description|Context|Tone|Format|Structure):/i', $line)) {
+                $start_index = $i + 1;
+                continue;
+            }
+            // Found actual content
+            if (preg_match('/^#|^[A-Z]|^[a-z]|^-/', $line)) {
+                $start_index = $i;
+                break;
+            }
+        }
+        $outline = implode("\n", array_slice($lines, $start_index));
+        
+        return trim($outline);
     }
 
     public function ajax_get_suggestions() {
