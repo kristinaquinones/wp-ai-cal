@@ -9,13 +9,13 @@ if (!defined('ABSPATH')) {
         <p class="aiec-subtitle"><?php esc_html_e('Configure your AI provider and content preferences', 'ai-editorial-calendar'); ?></p>
     </div>
 
-    <?php if (isset($_GET['settings-updated']) && $_GET['settings-updated'] === 'true'): ?>
+    <?php if (isset($_GET['settings-updated']) && sanitize_text_field(wp_unslash($_GET['settings-updated'])) === 'true'): ?>
         <div class="notice notice-success is-dismissible">
             <p><?php esc_html_e('Settings saved successfully.', 'ai-editorial-calendar'); ?></p>
         </div>
     <?php endif; ?>
 
-    <?php if (isset($_GET['aiec-deleted']) && $_GET['aiec-deleted'] === 'true'): ?>
+    <?php if (isset($_GET['aiec-deleted']) && sanitize_text_field(wp_unslash($_GET['aiec-deleted'])) === 'true'): ?>
         <div class="notice notice-warning is-dismissible">
             <p><?php esc_html_e('All settings have been deleted.', 'ai-editorial-calendar'); ?></p>
         </div>
