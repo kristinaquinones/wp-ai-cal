@@ -49,6 +49,17 @@
             $(document).on('dragend', '.aiec-list-row.aiec-draggable', (e) => this.handleListDragEnd(e));
             $(document).on('dragover', '.aiec-list-row', (e) => this.handleListDragOver(e));
             $(document).on('drop', '.aiec-list-row', (e) => this.handleListDrop(e));
+            
+            // Tooltips for calendar posts
+            $(document).on('mouseenter', '.aiec-post', (e) => this.showTooltip(e.currentTarget));
+            $(document).on('mouseleave', '.aiec-post', () => this.hideTooltip());
+            
+            // Tooltips for list view titles
+            $(document).on('mouseenter', '.aiec-col-title a', (e) => this.showTooltip(e.currentTarget));
+            $(document).on('mouseleave', '.aiec-col-title a', () => this.hideTooltip());
+            
+            // Hide tooltip on scroll
+            $(window).on('scroll', () => this.hideTooltip());
 
             $(document).on('click', '.aiec-day', (e) => {
                 // Don't open modal if we just finished dragging
@@ -344,7 +355,7 @@
 
                     const $post = $(`<div class="aiec-post ${statusClass} ${draggableClass}"
                         data-post-id="${post.id}"
-                        title="${this.escapeHtml(post.title)}"
+                        data-full-title="${this.escapeHtml(post.title)}"
                         ${draggableAttr}>
                         ${this.escapeHtml(post.title)}
                     </div>`);
@@ -543,7 +554,7 @@
                             <div class="aiec-list-time">${timeStr}</div>
                         </td>
                         <td class="aiec-col-title">
-                            <a href="${post.editUrl}" target="_blank">${this.escapeHtml(post.title)}</a>
+                            <a href="${post.editUrl}" target="_blank" data-full-title="${this.escapeHtml(post.title)}">${this.escapeHtml(post.title)}</a>
                         </td>
                         <td class="aiec-col-status">
                             <span class="aiec-status-badge ${statusClass}">${statusLabel}</span>
@@ -698,6 +709,93 @@
             }).fail(() => {
                 $btn.prop('disabled', false).text(aiecData.strings.getSuggestions);
                 alert('Network error. Please try again.');
+            });
+        },
+
+        showTooltip: function(element) {
+            const $el = $(element);
+            const title = $el.attr('data-full-title') || $el.text().trim() || $el.attr('title');
+            
+            if (!title) return;
+            
+            // Check if text is truncated (only show tooltip if needed)
+            const isTruncated = $el[0].scrollWidth > $el[0].clientWidth || 
+                               $el[0].scrollHeight > $el[0].clientHeight;
+            
+            // For calendar posts, always show if title exists (they're always truncated to 2 lines)
+            const isCalendarPost = $el.hasClass('aiec-post');
+            
+            if (!isTruncated && !isCalendarPost) return;
+            
+            // Remove native title to prevent double tooltip
+            $el.attr('data-original-title', $el.attr('title') || '');
+            $el.removeAttr('title');
+            
+            // Create or get tooltip element
+            let $tooltip = $('#aiec-tooltip');
+            if ($tooltip.length === 0) {
+                $tooltip = $('<div id="aiec-tooltip"></div>');
+                $('body').append($tooltip);
+            }
+            
+            $tooltip.text(title).show();
+            
+            // Position tooltip
+            this.positionTooltip($el, $tooltip);
+        },
+
+        hideTooltip: function() {
+            const $tooltip = $('#aiec-tooltip');
+            $tooltip.hide();
+            
+            // Restore original title attributes
+            $('[data-original-title]').each(function() {
+                const $el = $(this);
+                $el.attr('title', $el.attr('data-original-title'));
+                $el.removeAttr('data-original-title');
+            });
+        },
+
+        positionTooltip: function($element, $tooltip) {
+            // Show tooltip first to get accurate dimensions
+            $tooltip.css({ visibility: 'hidden', display: 'block' });
+            
+            const offset = $element.offset();
+            const width = $element.outerWidth();
+            const height = $element.outerHeight();
+            const tooltipWidth = $tooltip.outerWidth();
+            const tooltipHeight = $tooltip.outerHeight();
+            const scrollTop = $(window).scrollTop();
+            const scrollLeft = $(window).scrollLeft();
+            const windowWidth = $(window).width();
+            const windowHeight = $(window).height();
+            
+            // Default position: below and centered
+            let top = offset.top + height + 8;
+            let left = offset.left + (width / 2) - (tooltipWidth / 2);
+            let showAbove = false;
+            
+            // If tooltip would go below viewport, show above instead
+            if (top + tooltipHeight > scrollTop + windowHeight - 10) {
+                top = offset.top - tooltipHeight - 8;
+                showAbove = true;
+            }
+            
+            // Adjust horizontal position if tooltip goes off screen
+            if (left + tooltipWidth > scrollLeft + windowWidth - 10) {
+                left = scrollLeft + windowWidth - tooltipWidth - 10;
+            }
+            if (left < scrollLeft + 10) {
+                left = scrollLeft + 10;
+            }
+            
+            // Update arrow direction
+            $tooltip.toggleClass('aiec-tooltip-above', showAbove);
+            
+            $tooltip.css({
+                top: top + 'px',
+                left: left + 'px',
+                visibility: 'visible'
             });
         }
     };
