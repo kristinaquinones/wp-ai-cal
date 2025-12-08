@@ -4,7 +4,18 @@
     const Calendar = {
         currentDate: new Date(),
         posts: [],
+        listPosts: [],
         draggedPost: null,
+        currentView: 'calendar',
+        listPage: 1,
+        listPerPage: 20,
+        listTotal: 0,
+        listPages: 0,
+        listFilters: {
+            search: '',
+            status: '',
+            type: ''
+        },
 
         init: function() {
             this.bindEvents();
@@ -18,6 +29,26 @@
             $('.aiec-nav-today').on('click', () => this.goToToday());
             $('.aiec-modal-close').on('click', () => this.closeModal());
             $('.aiec-get-suggestions').on('click', () => this.getSuggestions());
+            
+            // View toggle
+            $('.aiec-view-btn').on('click', (e) => {
+                const view = $(e.currentTarget).data('view');
+                this.switchView(view);
+            });
+            
+            // List view events
+            $('.aiec-search-input').on('input', () => this.handleListFilter());
+            $('.aiec-status-filter, .aiec-type-filter').on('change', () => this.handleListFilter());
+            $('.aiec-new-post-list').on('click', () => {
+                window.location.href = aiecData.newPostUrl;
+            });
+            $('.aiec-get-suggestions-list').on('click', () => this.getSuggestionsForList());
+            
+            // List view drag and drop
+            $(document).on('dragstart', '.aiec-list-row.aiec-draggable', (e) => this.handleListDragStart(e));
+            $(document).on('dragend', '.aiec-list-row.aiec-draggable', (e) => this.handleListDragEnd(e));
+            $(document).on('dragover', '.aiec-list-row', (e) => this.handleListDragOver(e));
+            $(document).on('drop', '.aiec-list-row', (e) => this.handleListDrop(e));
 
             $(document).on('click', '.aiec-day', (e) => {
                 // Don't open modal if we just finished dragging
@@ -40,7 +71,8 @@
                 // Decode base64 encoded data
                 const title = decodeURIComponent(atob($btn.data('title')));
                 const desc = decodeURIComponent(atob($btn.data('desc') || ''));
-                this.createDraft(title, desc);
+                const dateOverride = $btn.data('date') || null;
+                this.createDraft(title, desc, dateOverride);
             });
 
             $(document).on('click', '.aiec-modal', (e) => {
@@ -245,8 +277,8 @@
             return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
         },
 
-        createDraft: function(title, desc) {
-            const date = $('#aiec-modal').data('date');
+        createDraft: function(title, desc, dateOverride) {
+            const date = dateOverride || $('#aiec-modal').data('date') || this.formatDate(new Date());
             const time = this.getRandomFutureTime();
             const dateTime = `${date} ${time}`;
 
@@ -262,9 +294,13 @@
                 date: dateTime
             }, (response) => {
                 if (response.success) {
-                    // Reload posts and close modal
-                    this.loadPosts();
-                    this.closeModal();
+                    // Reload posts based on current view
+                    if (this.currentView === 'list') {
+                        this.loadListPosts();
+                    } else {
+                        this.loadPosts();
+                        this.closeModal();
+                    }
                 } else {
                     alert(response.data || 'Failed to create draft');
                 }
@@ -421,12 +457,248 @@
                 const titleData = btoa(encodeURIComponent(title));
                 const descData = btoa(encodeURIComponent(desc));
 
+                const date = this.currentView === 'list' ? this.formatDate(new Date()) : ($('#aiec-modal').data('date') || this.formatDate(new Date()));
                 return `<div class="aiec-suggestion-item">
                     <strong>${this.escapeHtml(title)}</strong><br>
                     ${desc ? this.escapeHtml(desc) + '<br>' : ''}
-                    <button type="button" class="aiec-btn aiec-btn-small aiec-create-draft" data-title="${titleData}" data-desc="${descData}">Create Draft</button>
+                    <button type="button" class="aiec-btn aiec-btn-small aiec-create-draft" data-title="${titleData}" data-desc="${descData}" data-date="${date}">Create Draft</button>
                 </div>`;
             }).join('');
+        },
+
+        switchView: function(view) {
+            this.currentView = view;
+            $('.aiec-view-btn').removeClass('aiec-btn-primary');
+            $(`.aiec-view-btn[data-view="${view}"]`).addClass('aiec-btn-primary');
+            $('.aiec-view-container').hide();
+            $(`.aiec-view-container[data-view="${view}"]`).show();
+            
+            if (view === 'list') {
+                this.loadListPosts();
+            }
+        },
+
+        handleListFilter: function() {
+            this.listFilters.search = $('.aiec-search-input').val();
+            this.listFilters.status = $('.aiec-status-filter').val();
+            this.listFilters.type = $('.aiec-type-filter').val();
+            this.listPage = 1;
+            this.loadListPosts();
+        },
+
+        loadListPosts: function() {
+            $.post(aiecData.ajaxUrl, {
+                action: 'aiec_get_all_posts',
+                nonce: aiecData.nonce,
+                page: this.listPage,
+                per_page: this.listPerPage,
+                search: this.listFilters.search,
+                status: this.listFilters.status,
+                type: this.listFilters.type
+            }, (response) => {
+                if (response.success) {
+                    this.listPosts = response.data.posts;
+                    this.listTotal = response.data.total;
+                    this.listPages = response.data.pages;
+                    this.renderListPosts();
+                    this.renderListPagination();
+                }
+            });
+        },
+
+        renderListPosts: function() {
+            const $tbody = $('.aiec-list-tbody');
+            $tbody.empty();
+
+            if (this.listPosts.length === 0) {
+                $tbody.html('<tr><td colspan="6" style="text-align: center; padding: 40px; color: #666;">No posts found.</td></tr>');
+                return;
+            }
+
+            this.listPosts.forEach((post, index) => {
+                const postDate = new Date(post.date);
+                const dateStr = postDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                const timeStr = postDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                
+                const statusClass = `aiec-status-${post.status}`;
+                const statusLabels = {
+                    'publish': 'Published',
+                    'draft': 'Draft',
+                    'pending': 'Pending',
+                    'future': 'Scheduled'
+                };
+                const statusLabel = statusLabels[post.status] || post.status;
+                
+                const isDraggable = ['draft', 'pending', 'future'].includes(post.status);
+                const draggableClass = isDraggable ? 'aiec-draggable' : '';
+                const draggableAttr = isDraggable ? 'draggable="true"' : '';
+                
+                const row = `
+                    <tr class="aiec-list-row ${draggableClass}" data-post-id="${post.id}" ${draggableAttr}>
+                        <td class="aiec-col-drag">
+                            ${isDraggable ? '<span class="aiec-drag-handle">⋮⋮</span>' : ''}
+                        </td>
+                        <td class="aiec-col-date">
+                            <div class="aiec-list-date">${dateStr}</div>
+                            <div class="aiec-list-time">${timeStr}</div>
+                        </td>
+                        <td class="aiec-col-title">
+                            <a href="${post.editUrl}" target="_blank">${this.escapeHtml(post.title)}</a>
+                        </td>
+                        <td class="aiec-col-status">
+                            <span class="aiec-status-badge ${statusClass}">${statusLabel}</span>
+                        </td>
+                        <td class="aiec-col-category">
+                            ${post.category ? this.escapeHtml(post.category) : '—'}
+                        </td>
+                        <td class="aiec-col-actions">
+                            <a href="${post.editUrl}" target="_blank" class="aiec-btn aiec-btn-small">Edit</a>
+                        </td>
+                    </tr>
+                `;
+                $tbody.append(row);
+            });
+        },
+
+        renderListPagination: function() {
+            const $pagination = $('.aiec-list-pagination');
+            $pagination.empty();
+
+            if (this.listPages <= 1) return;
+
+            let html = '<div class="aiec-pagination">';
+            
+            // Previous button
+            if (this.listPage > 1) {
+                html += `<button type="button" class="aiec-btn aiec-pagination-btn" data-page="${this.listPage - 1}">← Previous</button>`;
+            }
+            
+            // Page numbers
+            const maxPages = Math.min(this.listPages, 10);
+            let startPage = Math.max(1, this.listPage - 4);
+            let endPage = Math.min(this.listPages, startPage + maxPages - 1);
+            
+            if (startPage > 1) {
+                html += `<button type="button" class="aiec-btn aiec-pagination-btn" data-page="1">1</button>`;
+                if (startPage > 2) {
+                    html += '<span class="aiec-pagination-ellipsis">...</span>';
+                }
+            }
+            
+            for (let i = startPage; i <= endPage; i++) {
+                const active = i === this.listPage ? 'aiec-btn-primary' : '';
+                html += `<button type="button" class="aiec-btn aiec-pagination-btn ${active}" data-page="${i}">${i}</button>`;
+            }
+            
+            if (endPage < this.listPages) {
+                if (endPage < this.listPages - 1) {
+                    html += '<span class="aiec-pagination-ellipsis">...</span>';
+                }
+                html += `<button type="button" class="aiec-btn aiec-pagination-btn" data-page="${this.listPages}">${this.listPages}</button>`;
+            }
+            
+            // Next button
+            if (this.listPage < this.listPages) {
+                html += `<button type="button" class="aiec-btn aiec-pagination-btn" data-page="${this.listPage + 1}">Next →</button>`;
+            }
+            
+            html += '</div>';
+            html += `<div class="aiec-pagination-info">Showing ${((this.listPage - 1) * this.listPerPage) + 1}-${Math.min(this.listPage * this.listPerPage, this.listTotal)} of ${this.listTotal} posts</div>`;
+            
+            $pagination.html(html);
+            
+            $('.aiec-pagination-btn').on('click', (e) => {
+                const page = parseInt($(e.currentTarget).data('page'));
+                if (page && page !== this.listPage) {
+                    this.listPage = page;
+                    this.loadListPosts();
+                    $('html, body').animate({ scrollTop: $('.aiec-list-card').offset().top - 20 }, 300);
+                }
+            });
+        },
+
+        handleListDragStart: function(e) {
+            const $row = $(e.currentTarget);
+            const postId = parseInt($row.data('post-id'));
+            
+            this.draggedPost = this.listPosts.find(p => p.id === postId);
+            if (!this.draggedPost) return;
+            
+            e.originalEvent.dataTransfer.effectAllowed = 'move';
+            $row.addClass('aiec-dragging');
+        },
+
+        handleListDragEnd: function(e) {
+            $(e.currentTarget).removeClass('aiec-dragging');
+            $('.aiec-list-row').removeClass('aiec-drag-over');
+            this.draggedPost = null;
+        },
+
+        handleListDragOver: function(e) {
+            if (!this.draggedPost) return;
+            e.preventDefault();
+            e.originalEvent.dataTransfer.dropEffect = 'move';
+            
+            const $row = $(e.currentTarget);
+            if (!$row.hasClass('aiec-draggable') || $row.data('post-id') === this.draggedPost.id) {
+                return;
+            }
+            
+            $('.aiec-list-row').removeClass('aiec-drag-over');
+            $row.addClass('aiec-drag-over');
+        },
+
+        handleListDrop: function(e) {
+            e.preventDefault();
+            const $targetRow = $(e.currentTarget);
+            const targetPostId = parseInt($targetRow.data('post-id'));
+            
+            if (!this.draggedPost || targetPostId === this.draggedPost.id) {
+                return;
+            }
+            
+            // Get the date from the target row
+            const targetPost = this.listPosts.find(p => p.id === targetPostId);
+            if (!targetPost) return;
+            
+            const targetDate = targetPost.date.split(' ')[0];
+            this.updatePostDate(this.draggedPost.id, targetDate);
+            
+            $targetRow.removeClass('aiec-drag-over');
+        },
+
+        getSuggestionsForList: function() {
+            if (!aiecData.hasApiKey) {
+                alert(aiecData.strings.noApiKey);
+                return;
+            }
+
+            // Use today's date for suggestions
+            const today = new Date();
+            const date = this.formatDate(today);
+            const $btn = $('.aiec-get-suggestions-list');
+            const $suggestions = $('.aiec-list-suggestions');
+            const $content = $('.aiec-list-suggestions-content');
+
+            $btn.prop('disabled', true).text(aiecData.strings.loading);
+
+            $.post(aiecData.ajaxUrl, {
+                action: 'aiec_get_suggestions',
+                nonce: aiecData.nonce,
+                date: date
+            }, (response) => {
+                $btn.prop('disabled', false).text(aiecData.strings.getSuggestions);
+
+                if (response.success) {
+                    $content.html(this.formatSuggestions(response.data));
+                    $suggestions.slideDown();
+                } else {
+                    alert(response.data || 'Error getting suggestions');
+                }
+            }).fail(() => {
+                $btn.prop('disabled', false).text(aiecData.strings.getSuggestions);
+                alert('Network error. Please try again.');
+            });
         }
     };
 

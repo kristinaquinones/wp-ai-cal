@@ -33,10 +33,16 @@ class AI_Editorial_Calendar {
         add_action('admin_init', [$this, 'register_settings']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_assets']);
         add_action('wp_ajax_aiec_get_posts', [$this, 'ajax_get_posts']);
+        add_action('wp_ajax_aiec_get_all_posts', [$this, 'ajax_get_all_posts']);
         add_action('wp_ajax_aiec_get_suggestions', [$this, 'ajax_get_suggestions']);
         add_action('wp_ajax_aiec_update_post_date', [$this, 'ajax_update_post_date']);
         add_action('admin_post_aiec_uninstall', [$this, 'handle_uninstall']);
         add_action('wp_ajax_aiec_create_draft', [$this, 'ajax_create_draft']);
+        add_filter('plugin_action_links_' . plugin_basename(__FILE__), [$this, 'add_plugin_action_links']);
+        add_action('admin_bar_menu', [$this, 'add_admin_bar_link'], 100);
+        add_action('post_submitbox_misc_actions', [$this, 'add_editor_return_link']);
+        add_filter('get_sample_permalink_html', [$this, 'add_view_post_return_link'], 10, 5);
+        add_action('add_meta_boxes', [$this, 'add_ai_suggestion_meta_box']);
     }
 
     public function add_admin_menu() {
@@ -179,6 +185,76 @@ class AI_Editorial_Calendar {
         include AIEC_PLUGIN_DIR . 'templates/settings.php';
     }
 
+    public function add_plugin_action_links($links) {
+        $settings_link = '<a href="' . esc_url(admin_url('admin.php?page=aiec-settings')) . '">' . __('Settings', 'ai-editorial-calendar') . '</a>';
+        array_unshift($links, $settings_link);
+        return $links;
+    }
+
+    public function add_admin_bar_link($wp_admin_bar) {
+        if (!current_user_can('edit_posts')) {
+            return;
+        }
+
+        $wp_admin_bar->add_node([
+            'id' => 'aiec-calendar',
+            'title' => __('Editorial Calendar', 'ai-editorial-calendar'),
+            'href' => admin_url('admin.php?page=ai-editorial-calendar'),
+            'parent' => false,
+        ]);
+    }
+
+    public function add_editor_return_link() {
+        if (!current_user_can('edit_posts')) {
+            return;
+        }
+
+        $calendar_url = admin_url('admin.php?page=ai-editorial-calendar');
+        echo '<div class="misc-pub-section" style="padding-top: 10px; border-top: 1px solid #ddd; margin-top: 10px;">';
+        echo '<a href="' . esc_url($calendar_url) . '" class="button button-secondary" style="width: 100%; text-align: center; margin-top: 5px;">';
+        echo esc_html__('Return to Editorial Calendar', 'ai-editorial-calendar');
+        echo '</a>';
+        echo '</div>';
+    }
+
+    public function add_view_post_return_link($return, $post_id, $new_title, $new_slug, $post) {
+        if (!current_user_can('edit_posts')) {
+            return $return;
+        }
+
+        $calendar_url = admin_url('admin.php?page=ai-editorial-calendar');
+        $calendar_link = '<a href="' . esc_url($calendar_url) . '" class="button button-small" style="margin-left: 8px;">' . esc_html__('Return to Editorial Calendar', 'ai-editorial-calendar') . '</a>';
+        
+        // Add the link after the existing preview/permalink HTML
+        return $return . $calendar_link;
+    }
+
+    public function add_ai_suggestion_meta_box() {
+        add_meta_box(
+            'aiec-ai-suggestion',
+            __('AI Suggestion', 'ai-editorial-calendar'),
+            [$this, 'render_ai_suggestion_meta_box'],
+            ['post', 'page'],
+            'side',
+            'high'
+        );
+    }
+
+    public function render_ai_suggestion_meta_box($post) {
+        $suggestion = get_post_meta($post->ID, '_aiec_ai_suggestion', true);
+        
+        if (empty($suggestion)) {
+            echo '<p style="color: #666; font-style: italic;">' . esc_html__('No AI suggestion available for this post.', 'ai-editorial-calendar') . '</p>';
+            return;
+        }
+
+        echo '<div style="background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px; padding: 12px; margin-top: 8px;">';
+        echo '<p style="margin: 0; color: #333; line-height: 1.6;">' . esc_html($suggestion) . '</p>';
+        echo '</div>';
+        
+        wp_nonce_field('aiec_save_suggestion', 'aiec_suggestion_nonce');
+    }
+
     public function handle_uninstall() {
         if (!current_user_can('manage_options')) {
             wp_die(__('Unauthorized', 'ai-editorial-calendar'));
@@ -220,6 +296,23 @@ class AI_Editorial_Calendar {
         ]);
 
         $events = array_map(function($post) {
+            // Get primary category
+            $primary_category = '';
+            if ($post->post_type === 'post') {
+                $categories = get_the_category($post->ID);
+                if (!empty($categories)) {
+                    // Use first category as primary, or check for Yoast primary category
+                    $primary_category = $categories[0]->name;
+                    $yoast_primary = get_post_meta($post->ID, '_yoast_wpseo_primary_category', true);
+                    if ($yoast_primary) {
+                        $cat = get_category($yoast_primary);
+                        if ($cat && !is_wp_error($cat)) {
+                            $primary_category = $cat->name;
+                        }
+                    }
+                }
+            }
+
             return [
                 'id' => $post->ID,
                 'title' => $post->post_title ?: __('(no title)', 'ai-editorial-calendar'),
@@ -227,10 +320,85 @@ class AI_Editorial_Calendar {
                 'status' => $post->post_status,
                 'editUrl' => get_edit_post_link($post->ID, 'raw'),
                 'type' => $post->post_type,
+                'category' => $primary_category,
             ];
         }, $posts);
 
         wp_send_json_success($events);
+    }
+
+    public function ajax_get_all_posts() {
+        check_ajax_referer('aiec_nonce', 'nonce');
+
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error(__('Unauthorized', 'ai-editorial-calendar'));
+        }
+
+        $page = intval($_POST['page'] ?? 1);
+        $per_page = intval($_POST['per_page'] ?? 20);
+        $search = sanitize_text_field(wp_unslash($_POST['search'] ?? ''));
+        $status_filter = sanitize_text_field(wp_unslash($_POST['status'] ?? ''));
+        $type_filter = sanitize_text_field(wp_unslash($_POST['type'] ?? ''));
+
+        $args = [
+            'post_type' => ['post', 'page'],
+            'post_status' => ['publish', 'draft', 'pending', 'future'],
+            'posts_per_page' => $per_page,
+            'paged' => $page,
+            'orderby' => 'date',
+            'order' => 'DESC',
+        ];
+
+        if (!empty($search)) {
+            $args['s'] = $search;
+        }
+
+        if (!empty($status_filter)) {
+            $args['post_status'] = [$status_filter];
+        }
+
+        if (!empty($type_filter)) {
+            $args['post_type'] = [$type_filter];
+        }
+
+        $query = new WP_Query($args);
+        $posts = $query->posts;
+
+        $events = array_map(function($post) {
+            // Get primary category
+            $primary_category = '';
+            if ($post->post_type === 'post') {
+                $categories = get_the_category($post->ID);
+                if (!empty($categories)) {
+                    // Use first category as primary, or check for Yoast primary category
+                    $primary_category = $categories[0]->name;
+                    $yoast_primary = get_post_meta($post->ID, '_yoast_wpseo_primary_category', true);
+                    if ($yoast_primary) {
+                        $cat = get_category($yoast_primary);
+                        if ($cat && !is_wp_error($cat)) {
+                            $primary_category = $cat->name;
+                        }
+                    }
+                }
+            }
+
+            return [
+                'id' => $post->ID,
+                'title' => $post->post_title ?: __('(no title)', 'ai-editorial-calendar'),
+                'date' => $post->post_date,
+                'status' => $post->post_status,
+                'editUrl' => get_edit_post_link($post->ID, 'raw'),
+                'type' => $post->post_type,
+                'category' => $primary_category,
+            ];
+        }, $posts);
+
+        wp_send_json_success([
+            'posts' => $events,
+            'total' => $query->found_posts,
+            'pages' => $query->max_num_pages,
+            'current_page' => $page,
+        ]);
     }
 
     public function ajax_update_post_date() {
@@ -288,17 +456,9 @@ class AI_Editorial_Calendar {
             wp_send_json_error(__('Invalid date format', 'ai-editorial-calendar'));
         }
 
-        // Build post content with hidden description
-        $content = '';
-        if (!empty($description)) {
-            $content = '<!-- wp:paragraph {"className":"aiec-suggestion-note"} -->' . "\n";
-            $content .= '<p class="aiec-suggestion-note" style="display:none;">' . esc_html($description) . '</p>' . "\n";
-            $content .= '<!-- /wp:paragraph -->';
-        }
-
         $post_id = wp_insert_post([
             'post_title' => $title,
-            'post_content' => $content,
+            'post_content' => '',
             'post_status' => 'draft',
             'post_date' => $date,
             'post_date_gmt' => get_gmt_from_date($date),
@@ -306,6 +466,11 @@ class AI_Editorial_Calendar {
 
         if (is_wp_error($post_id)) {
             wp_send_json_error($post_id->get_error_message());
+        }
+
+        // Store AI suggestion description in post meta
+        if (!empty($description)) {
+            update_post_meta($post_id, '_aiec_ai_suggestion', sanitize_textarea_field($description));
         }
 
         wp_send_json_success(['id' => $post_id]);
