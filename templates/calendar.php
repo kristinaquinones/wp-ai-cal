@@ -88,11 +88,6 @@ $has_api_key = !empty(AI_Editorial_Calendar::get_instance()->get_api_key());
                     <option value="pending"><?php esc_html_e('Pending', 'ai-editorial-calendar'); ?></option>
                     <option value="future"><?php esc_html_e('Scheduled', 'ai-editorial-calendar'); ?></option>
                 </select>
-                <select class="aiec-type-filter">
-                    <option value=""><?php esc_html_e('All Types', 'ai-editorial-calendar'); ?></option>
-                    <option value="post"><?php esc_html_e('Posts', 'ai-editorial-calendar'); ?></option>
-                    <option value="page"><?php esc_html_e('Pages', 'ai-editorial-calendar'); ?></option>
-                </select>
             </div>
             <div class="aiec-list-actions">
                 <button type="button" class="aiec-btn aiec-btn-primary aiec-new-post-list"><?php esc_html_e('New Post', 'ai-editorial-calendar'); ?></button>
