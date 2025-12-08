@@ -35,6 +35,7 @@ class AI_Editorial_Calendar {
         add_action('wp_ajax_aiec_get_posts', [$this, 'ajax_get_posts']);
         add_action('wp_ajax_aiec_get_suggestions', [$this, 'ajax_get_suggestions']);
         add_action('wp_ajax_aiec_update_post_date', [$this, 'ajax_update_post_date']);
+        add_action('admin_post_aiec_uninstall', [$this, 'handle_uninstall']);
     }
 
     public function add_admin_menu() {
@@ -79,9 +80,14 @@ class AI_Editorial_Calendar {
         if (empty($value)) {
             return get_option('aiec_api_key');
         }
-        if (defined('LOGGED_IN_KEY')) {
-            return base64_encode(openssl_encrypt($value, 'AES-256-CBC', LOGGED_IN_KEY, 0, substr(LOGGED_IN_SALT, 0, 16)));
+        if (defined('LOGGED_IN_KEY') && defined('LOGGED_IN_SALT') && strlen(LOGGED_IN_SALT) >= 16) {
+            $iv = substr(LOGGED_IN_SALT, 0, 16);
+            $encrypted = openssl_encrypt($value, 'AES-256-CBC', LOGGED_IN_KEY, 0, $iv);
+            if ($encrypted !== false) {
+                return base64_encode($encrypted);
+            }
         }
+        // Fallback: simple base64 encoding (not secure, but functional)
         return base64_encode($value);
     }
 
@@ -90,10 +96,23 @@ class AI_Editorial_Calendar {
         if (empty($encrypted)) {
             return '';
         }
-        if (defined('LOGGED_IN_KEY')) {
-            return openssl_decrypt(base64_decode($encrypted), 'AES-256-CBC', LOGGED_IN_KEY, 0, substr(LOGGED_IN_SALT, 0, 16));
+
+        $decoded = base64_decode($encrypted, true);
+        if ($decoded === false) {
+            return '';
         }
-        return base64_decode($encrypted);
+
+        if (defined('LOGGED_IN_KEY') && defined('LOGGED_IN_SALT') && strlen(LOGGED_IN_SALT) >= 16) {
+            $iv = substr(LOGGED_IN_SALT, 0, 16);
+            $decrypted = openssl_decrypt($decoded, 'AES-256-CBC', LOGGED_IN_KEY, 0, $iv);
+            if ($decrypted !== false) {
+                return $decrypted;
+            }
+            // Decryption failed - might be stored with fallback encoding
+        }
+
+        // Fallback: assume it was base64 encoded without encryption
+        return $decoded;
     }
 
     public function enqueue_assets($hook) {
@@ -136,6 +155,21 @@ class AI_Editorial_Calendar {
 
     public function render_settings_page() {
         include AIEC_PLUGIN_DIR . 'templates/settings.php';
+    }
+
+    public function handle_uninstall() {
+        if (!current_user_can('manage_options')) {
+            wp_die(__('Unauthorized', 'ai-editorial-calendar'));
+        }
+
+        check_admin_referer('aiec_uninstall', 'aiec_uninstall_nonce');
+
+        delete_option('aiec_ai_provider');
+        delete_option('aiec_api_key');
+        delete_option('aiec_site_context');
+
+        wp_safe_redirect(add_query_arg('aiec-deleted', 'true', admin_url('admin.php?page=aiec-settings')));
+        exit;
     }
 
     public function ajax_get_posts() {
