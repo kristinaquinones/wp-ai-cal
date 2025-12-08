@@ -3,25 +3,29 @@ if (!defined('ABSPATH')) {
     exit;
 }
 ?>
-<div class="wrap">
-    <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+<div class="wrap aiec-wrap">
+    <div class="aiec-header">
+        <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+        <p class="aiec-subtitle"><?php esc_html_e('Configure your AI provider and content preferences', 'ai-editorial-calendar'); ?></p>
+    </div>
 
-    <?php if (isset($_GET['settings-updated']) && $_GET['settings-updated'] === 'true'): ?>
+    <?php if (isset($_GET['settings-updated']) && sanitize_text_field(wp_unslash($_GET['settings-updated'])) === 'true'): ?>
         <div class="notice notice-success is-dismissible">
             <p><?php esc_html_e('Settings saved successfully.', 'ai-editorial-calendar'); ?></p>
         </div>
     <?php endif; ?>
 
-    <?php if (isset($_GET['aiec-deleted']) && $_GET['aiec-deleted'] === 'true'): ?>
+    <?php if (isset($_GET['aiec-deleted']) && sanitize_text_field(wp_unslash($_GET['aiec-deleted'])) === 'true'): ?>
         <div class="notice notice-warning is-dismissible">
             <p><?php esc_html_e('All settings have been deleted.', 'ai-editorial-calendar'); ?></p>
         </div>
     <?php endif; ?>
 
-    <form method="post" action="options.php">
-        <?php settings_fields('aiec_settings'); ?>
+    <div class="aiec-settings-card">
+        <form method="post" action="options.php">
+            <?php settings_fields('aiec_settings'); ?>
 
-        <table class="form-table">
+            <table class="form-table aiec-form-table">
             <tr>
                 <th scope="row">
                     <label for="aiec_ai_provider"><?php esc_html_e('AI Provider', 'ai-editorial-calendar'); ?></label>
@@ -81,20 +85,21 @@ if (!defined('ABSPATH')) {
                     <p class="description"><?php esc_html_e('Topics, phrases, or approaches the AI should not suggest. (Max 500 characters)', 'ai-editorial-calendar'); ?></p>
                 </td>
             </tr>
-        </table>
+            </table>
 
-        <?php submit_button(); ?>
-    </form>
+            <?php submit_button(null, 'primary', 'submit', false, ['class' => 'aiec-btn aiec-btn-primary']); ?>
+        </form>
+    </div>
 
-    <hr>
-
-    <h2><?php esc_html_e('Danger Zone', 'ai-editorial-calendar'); ?></h2>
-    <p class="description"><?php esc_html_e('Remove all plugin data. This cannot be undone.', 'ai-editorial-calendar'); ?></p>
-    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" id="aiec-uninstall-form">
-        <?php wp_nonce_field('aiec_uninstall', 'aiec_uninstall_nonce'); ?>
-        <input type="hidden" name="action" value="aiec_uninstall">
-        <button type="submit" class="button button-link-delete" onclick="return confirm('<?php esc_attr_e('Are you sure you want to delete all AI Editorial Calendar settings? This cannot be undone.', 'ai-editorial-calendar'); ?>');">
-            <?php esc_html_e('Delete All Settings', 'ai-editorial-calendar'); ?>
-        </button>
-    </form>
+    <div class="aiec-settings-card aiec-danger-zone">
+        <h2><?php esc_html_e('Danger Zone', 'ai-editorial-calendar'); ?></h2>
+        <p class="aiec-description"><?php esc_html_e('Remove all plugin data. This cannot be undone.', 'ai-editorial-calendar'); ?></p>
+        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" id="aiec-uninstall-form">
+            <?php wp_nonce_field('aiec_uninstall', 'aiec_uninstall_nonce'); ?>
+            <input type="hidden" name="action" value="aiec_uninstall">
+            <button type="submit" class="aiec-btn aiec-btn-danger" onclick="return confirm('<?php esc_attr_e('Are you sure you want to delete all AI Editorial Calendar settings? This cannot be undone.', 'ai-editorial-calendar'); ?>');">
+                <?php esc_html_e('Delete All Settings', 'ai-editorial-calendar'); ?>
+            </button>
+        </form>
+    </div>
 </div>

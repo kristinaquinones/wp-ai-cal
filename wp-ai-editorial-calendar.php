@@ -108,16 +108,45 @@ class AI_Editorial_Calendar {
         return get_option('aiec_api_key', '');
     }
 
+    private function validate_date_time($date_string) {
+        if (empty($date_string)) {
+            return false;
+        }
+
+        // Validate date format (YYYY-MM-DD HH:MM:SS)
+        if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $date_string)) {
+            return false;
+        }
+
+        // Validate it's a real date
+        $date_parts = date_parse($date_string);
+        if ($date_parts['error_count'] > 0 || $date_parts['warning_count'] > 0) {
+            return false;
+        }
+
+        return true;
+    }
+
     public function enqueue_assets($hook) {
         if (strpos($hook, 'ai-editorial-calendar') === false && strpos($hook, 'aiec-settings') === false) {
             return;
         }
 
-        wp_enqueue_style('aiec-styles', AIEC_PLUGIN_URL . 'assets/css/calendar.css', [], AIEC_VERSION);
+        // Enqueue Google Fonts
+        wp_enqueue_style(
+            'aiec-fonts',
+            'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap',
+            [],
+            null
+        );
+        
+        wp_enqueue_style('aiec-styles', AIEC_PLUGIN_URL . 'assets/css/calendar.css', ['aiec-fonts'], AIEC_VERSION);
         wp_enqueue_script('aiec-calendar', AIEC_PLUGIN_URL . 'assets/js/calendar.js', ['jquery'], AIEC_VERSION, true);
 
         wp_localize_script('aiec-calendar', 'aiecData', [
             'ajaxUrl' => admin_url('admin-ajax.php'),
+            'adminUrl' => admin_url('admin.php'),
+            'newPostUrl' => admin_url('post-new.php'),
             'nonce' => wp_create_nonce('aiec_nonce'),
             'hasApiKey' => !empty($this->get_api_key()),
             'strings' => [
@@ -171,7 +200,7 @@ class AI_Editorial_Calendar {
         check_ajax_referer('aiec_nonce', 'nonce');
 
         if (!current_user_can('edit_posts')) {
-            wp_send_json_error('Unauthorized');
+            wp_send_json_error(__('Unauthorized', 'ai-editorial-calendar'));
         }
 
         $start = sanitize_text_field(wp_unslash($_POST['start'] ?? ''));
@@ -208,30 +237,23 @@ class AI_Editorial_Calendar {
         check_ajax_referer('aiec_nonce', 'nonce');
 
         if (!current_user_can('edit_posts')) {
-            wp_send_json_error('Unauthorized');
+            wp_send_json_error(__('Unauthorized', 'ai-editorial-calendar'));
         }
 
         $post_id = intval($_POST['post_id'] ?? 0);
         $new_date = sanitize_text_field(wp_unslash($_POST['new_date'] ?? ''));
 
         if (!$post_id || !$new_date) {
-            wp_send_json_error('Invalid parameters');
+            wp_send_json_error(__('Invalid parameters', 'ai-editorial-calendar'));
         }
 
-        // Validate date format (YYYY-MM-DD HH:MM:SS)
-        if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $new_date)) {
-            wp_send_json_error('Invalid date format');
-        }
-
-        // Validate it's a real date
-        $date_parts = date_parse($new_date);
-        if ($date_parts['error_count'] > 0 || $date_parts['warning_count'] > 0) {
-            wp_send_json_error('Invalid date');
+        if (!$this->validate_date_time($new_date)) {
+            wp_send_json_error(__('Invalid date format', 'ai-editorial-calendar'));
         }
 
         $post = get_post($post_id);
         if (!$post || !current_user_can('edit_post', $post_id)) {
-            wp_send_json_error('Cannot edit this post');
+            wp_send_json_error(__('Cannot edit this post', 'ai-editorial-calendar'));
         }
 
         $updated = wp_update_post([
@@ -251,7 +273,7 @@ class AI_Editorial_Calendar {
         check_ajax_referer('aiec_nonce', 'nonce');
 
         if (!current_user_can('edit_posts')) {
-            wp_send_json_error('Unauthorized');
+            wp_send_json_error(__('Unauthorized', 'ai-editorial-calendar'));
         }
 
         $title = sanitize_text_field(wp_unslash($_POST['title'] ?? ''));
@@ -259,12 +281,11 @@ class AI_Editorial_Calendar {
         $date = sanitize_text_field(wp_unslash($_POST['date'] ?? ''));
 
         if (empty($title)) {
-            wp_send_json_error('Title is required');
+            wp_send_json_error(__('Title is required', 'ai-editorial-calendar'));
         }
 
-        // Validate date format
-        if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $date)) {
-            wp_send_json_error('Invalid date format');
+        if (!$this->validate_date_time($date)) {
+            wp_send_json_error(__('Invalid date format', 'ai-editorial-calendar'));
         }
 
         // Build post content with hidden description
@@ -294,7 +315,7 @@ class AI_Editorial_Calendar {
         check_ajax_referer('aiec_nonce', 'nonce');
 
         if (!current_user_can('edit_posts')) {
-            wp_send_json_error('Unauthorized');
+            wp_send_json_error(__('Unauthorized', 'ai-editorial-calendar'));
         }
 
         $api_key = $this->get_api_key();
@@ -331,24 +352,36 @@ class AI_Editorial_Calendar {
     }
 
     private function build_prompt($context, $tone, $avoid, $recent_titles, $date) {
-        $titles_list = implode(', ', array_slice(array_values($recent_titles), 0, 5));
+        // Sanitize date
+        $date = sanitize_text_field($date);
+        
+        // Sanitize recent titles
+        $sanitized_titles = array_map(function($title) {
+            return sanitize_text_field($title);
+        }, array_slice(array_values($recent_titles), 0, 5));
+        
+        $titles_list = implode(', ', $sanitized_titles);
 
-        $prompt = "Suggest 3 blog posts for {$date}.";
+        // Build prompt with sanitized inputs (context, tone, avoid are already sanitized via settings)
+        $prompt = sprintf(
+            'Suggest 3 blog posts for %s.',
+            $date
+        );
 
         if ($context) {
-            $prompt .= " Site: {$context}.";
+            $prompt .= sprintf(' Site: %s.', $context);
         }
         if ($tone) {
-            $prompt .= " Tone: {$tone}.";
+            $prompt .= sprintf(' Tone: %s.', $tone);
         }
         if ($titles_list) {
-            $prompt .= " Recent: {$titles_list}.";
+            $prompt .= sprintf(' Recent: %s.', $titles_list);
         }
         if ($avoid) {
-            $prompt .= " Avoid: {$avoid}.";
+            $prompt .= sprintf(' Avoid: %s.', $avoid);
         }
 
-        $prompt .= " Format: Title: X | Desc: Y (one line each, no duplicates)";
+        $prompt .= ' Format: Title: X | Desc: Y (one line each, no duplicates)';
 
         return $prompt;
     }
@@ -367,7 +400,7 @@ class AI_Editorial_Calendar {
                 $response = $this->call_google($api_key, $prompt);
                 break;
             default:
-                return new WP_Error('invalid_provider', 'Invalid AI provider');
+                return new WP_Error('invalid_provider', __('Invalid AI provider', 'ai-editorial-calendar'));
         }
 
         return $response;
@@ -396,10 +429,15 @@ class AI_Editorial_Calendar {
         $body = json_decode(wp_remote_retrieve_body($response), true);
 
         if (isset($body['error'])) {
-            return new WP_Error('api_error', $body['error']['message'] ?? 'API error');
+            return new WP_Error('api_error', $body['error']['message'] ?? __('API error', 'ai-editorial-calendar'));
         }
 
-        return $body['choices'][0]['message']['content'] ?? '';
+        $content = $body['choices'][0]['message']['content'] ?? '';
+        if (empty($content)) {
+            return new WP_Error('api_error', __('Empty response from API', 'ai-editorial-calendar'));
+        }
+
+        return $content;
     }
 
     private function call_anthropic($api_key, $prompt) {
@@ -426,16 +464,22 @@ class AI_Editorial_Calendar {
         $body = json_decode(wp_remote_retrieve_body($response), true);
 
         if (isset($body['error'])) {
-            return new WP_Error('api_error', $body['error']['message'] ?? 'API error');
+            return new WP_Error('api_error', $body['error']['message'] ?? __('API error', 'ai-editorial-calendar'));
         }
 
-        return $body['content'][0]['text'] ?? '';
+        $content = $body['content'][0]['text'] ?? '';
+        if (empty($content)) {
+            return new WP_Error('api_error', __('Empty response from API', 'ai-editorial-calendar'));
+        }
+
+        return $content;
     }
 
     private function call_google($api_key, $prompt) {
-        $response = wp_remote_post('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=' . $api_key, [
+        $response = wp_remote_post('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent', [
             'headers' => [
                 'Content-Type' => 'application/json',
+                'x-goog-api-key' => $api_key,
             ],
             'body' => json_encode([
                 'contents' => [
@@ -452,10 +496,14 @@ class AI_Editorial_Calendar {
         $body = json_decode(wp_remote_retrieve_body($response), true);
 
         if (isset($body['error'])) {
-            return new WP_Error('api_error', $body['error']['message'] ?? 'API error');
+            return new WP_Error('api_error', $body['error']['message'] ?? __('API error', 'ai-editorial-calendar'));
         }
 
-        return $body['candidates'][0]['content']['parts'][0]['text'] ?? '';
+        if (empty($body['candidates'][0]['content']['parts'][0]['text'])) {
+            return new WP_Error('api_error', __('Empty response from API', 'ai-editorial-calendar'));
+        }
+
+        return $body['candidates'][0]['content']['parts'][0]['text'];
     }
 }
 
