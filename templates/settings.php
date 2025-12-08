@@ -102,4 +102,15 @@ if (!defined('ABSPATH')) {
             </button>
         </form>
     </div>
+
+    <div class="aiec-attribution">
+        <p>
+            <?php
+            printf(
+                esc_html__('AI Editorial Calendar by %s', 'ai-editorial-calendar'),
+                '<a href="https://github.com/kristinaquiones/wp-ai-cal" target="_blank" rel="noopener noreferrer">KQ</a>'
+            );
+            ?>
+        </p>
+    </div>
 </div>

@@ -25,7 +25,16 @@ $has_api_key = !empty(AI_Editorial_Calendar::get_instance()->get_api_key());
         </div>
     <?php endif; ?>
 
-    <div class="aiec-calendar-card">
+    <div class="aiec-view-toggle">
+        <button type="button" class="aiec-btn aiec-view-btn aiec-view-calendar aiec-btn-primary" data-view="calendar">
+            <?php esc_html_e('Calendar', 'ai-editorial-calendar'); ?>
+        </button>
+        <button type="button" class="aiec-btn aiec-view-btn aiec-view-list" data-view="list">
+            <?php esc_html_e('List', 'ai-editorial-calendar'); ?>
+        </button>
+    </div>
+
+    <div class="aiec-calendar-card aiec-view-container" data-view="calendar">
         <div class="aiec-calendar-toolbar">
             <div class="aiec-month-title"></div>
             <div class="aiec-nav-buttons">
@@ -68,6 +77,54 @@ $has_api_key = !empty(AI_Editorial_Calendar::get_instance()->get_api_key());
         </div>
     </div>
 
+    <div class="aiec-list-card aiec-view-container" data-view="list" style="display: none;">
+        <div class="aiec-list-toolbar">
+            <div class="aiec-list-filters">
+                <input type="text" class="aiec-search-input" placeholder="<?php esc_attr_e('Search posts...', 'ai-editorial-calendar'); ?>">
+                <select class="aiec-status-filter">
+                    <option value=""><?php esc_html_e('All Statuses', 'ai-editorial-calendar'); ?></option>
+                    <option value="publish"><?php esc_html_e('Published', 'ai-editorial-calendar'); ?></option>
+                    <option value="draft"><?php esc_html_e('Draft', 'ai-editorial-calendar'); ?></option>
+                    <option value="pending"><?php esc_html_e('Pending', 'ai-editorial-calendar'); ?></option>
+                    <option value="future"><?php esc_html_e('Scheduled', 'ai-editorial-calendar'); ?></option>
+                </select>
+                <select class="aiec-type-filter">
+                    <option value=""><?php esc_html_e('All Types', 'ai-editorial-calendar'); ?></option>
+                    <option value="post"><?php esc_html_e('Posts', 'ai-editorial-calendar'); ?></option>
+                    <option value="page"><?php esc_html_e('Pages', 'ai-editorial-calendar'); ?></option>
+                </select>
+            </div>
+            <div class="aiec-list-actions">
+                <button type="button" class="aiec-btn aiec-btn-primary aiec-new-post-list"><?php esc_html_e('New Post', 'ai-editorial-calendar'); ?></button>
+                <?php if ($has_api_key): ?>
+                    <button type="button" class="aiec-btn aiec-get-suggestions-list"><?php esc_html_e('Get AI Suggestions', 'ai-editorial-calendar'); ?></button>
+                <?php endif; ?>
+            </div>
+        </div>
+        <div class="aiec-list-table-wrapper">
+            <table class="aiec-list-table">
+                <thead>
+                    <tr>
+                        <th class="aiec-col-drag"></th>
+                        <th class="aiec-col-date"><?php esc_html_e('Date', 'ai-editorial-calendar'); ?></th>
+                        <th class="aiec-col-title"><?php esc_html_e('Title', 'ai-editorial-calendar'); ?></th>
+                        <th class="aiec-col-status"><?php esc_html_e('Status', 'ai-editorial-calendar'); ?></th>
+                        <th class="aiec-col-category"><?php esc_html_e('Category', 'ai-editorial-calendar'); ?></th>
+                        <th class="aiec-col-actions"><?php esc_html_e('Actions', 'ai-editorial-calendar'); ?></th>
+                    </tr>
+                </thead>
+                <tbody class="aiec-list-tbody">
+                    <!-- Posts will be loaded here -->
+                </tbody>
+            </table>
+        </div>
+        <div class="aiec-list-pagination"></div>
+        <div class="aiec-list-suggestions" style="display: none;">
+            <h4><?php esc_html_e('AI Suggestions', 'ai-editorial-calendar'); ?></h4>
+            <div class="aiec-list-suggestions-content"></div>
+        </div>
+    </div>
+
     <div id="aiec-modal" class="aiec-modal" style="display: none;">
         <div class="aiec-modal-content">
             <span class="aiec-modal-close">&times;</span>
@@ -86,5 +143,16 @@ $has_api_key = !empty(AI_Editorial_Calendar::get_instance()->get_api_key());
                 </div>
             </div>
         </div>
+    </div>
+
+    <div class="aiec-attribution">
+        <p>
+            <?php
+            printf(
+                esc_html__('AI Editorial Calendar by %s', 'ai-editorial-calendar'),
+                '<a href="https://github.com/kristinaquiones/wp-ai-cal" target="_blank" rel="noopener noreferrer">KQ</a>'
+            );
+            ?>
+        </p>
     </div>
 </div>
