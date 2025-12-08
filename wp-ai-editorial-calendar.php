@@ -41,8 +41,8 @@ class AI_Editorial_Calendar {
 
     public function add_admin_menu() {
         add_menu_page(
-            __('Editorial Calendar', 'ai-editorial-calendar'),
-            __('Editorial Calendar', 'ai-editorial-calendar'),
+            __('AI Editorial Calendar', 'ai-editorial-calendar'),
+            __('AI Editorial Calendar', 'ai-editorial-calendar'),
             'edit_posts',
             'ai-editorial-calendar',
             [$this, 'render_calendar_page'],
