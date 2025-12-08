@@ -1,10 +1,10 @@
 <?php
 /**
  * Plugin Name: AI Editorial Calendar
- * Plugin URI: https://github.com/your-username/wp-ai-editorial-calendar
+ * Plugin URI: https://github.com/kristinaquiones/wp-ai-cal
  * Description: A lightweight editorial calendar with personalized AI content suggestions. Connect your own AI account (OpenAI, Anthropic, or Google).
  * Version: 1.0.0
- * Author: Your Name
+ * Author: Kristina Quinones
  * License: GPL v2 or later
  * Text Domain: ai-editorial-calendar
  */

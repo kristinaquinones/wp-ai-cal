@@ -40,6 +40,9 @@ Get an API key from your chosen provider:
 - Anthropic: https://console.anthropic.com/settings/keys
 - Google AI: https://aistudio.google.com/apikey
 
+_Review each provider for more information on costs and free credit availability._
+
+
 ### 3. Configure Content Settings
 
 **Site Context** (max 500 characters)
