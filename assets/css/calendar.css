@@ -1,0 +1,280 @@
+.aiec-wrap {
+    max-width: 1200px;
+}
+
+.aiec-calendar-container {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    margin-top: 20px;
+}
+
+.aiec-calendar-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 15px 20px;
+    border-bottom: 1px solid #c3c4c7;
+    background: #f6f7f7;
+}
+
+.aiec-month-title {
+    flex: 1;
+    text-align: center;
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.aiec-calendar-grid {
+    padding: 10px;
+}
+
+.aiec-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    margin-bottom: 5px;
+}
+
+.aiec-weekdays > div {
+    text-align: center;
+    font-weight: 600;
+    padding: 10px 5px;
+    color: #50575e;
+    font-size: 12px;
+    text-transform: uppercase;
+}
+
+.aiec-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: #c3c4c7;
+    border: 1px solid #c3c4c7;
+}
+
+.aiec-day {
+    background: #fff;
+    min-height: 100px;
+    padding: 5px;
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+
+.aiec-day:hover {
+    background: #f0f6fc;
+}
+
+.aiec-day-other {
+    background: #f6f7f7;
+}
+
+.aiec-day-other:hover {
+    background: #eef0f1;
+}
+
+.aiec-day-today {
+    background: #fcf9e8;
+}
+
+.aiec-day-today:hover {
+    background: #faf6dc;
+}
+
+.aiec-day-number {
+    display: block;
+    font-weight: 600;
+    font-size: 14px;
+    color: #1d2327;
+    margin-bottom: 5px;
+}
+
+.aiec-day-other .aiec-day-number {
+    color: #8c8f94;
+}
+
+.aiec-day-today .aiec-day-number {
+    color: #2271b1;
+}
+
+.aiec-day-posts {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.aiec-post {
+    font-size: 11px;
+    padding: 3px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+.aiec-status-publish {
+    background: #d4edda;
+    color: #155724;
+}
+
+.aiec-status-draft {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.aiec-status-pending {
+    background: #cce5ff;
+    color: #004085;
+}
+
+.aiec-status-future {
+    background: #e2e3e5;
+    color: #383d41;
+}
+
+/* Modal */
+.aiec-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100000;
+}
+
+.aiec-modal-content {
+    background: #fff;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 80vh;
+    overflow-y: auto;
+    position: relative;
+    box-shadow: 0 5px 30px rgba(0, 0, 0, 0.3);
+}
+
+.aiec-modal-close {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 24px;
+    cursor: pointer;
+    color: #8c8f94;
+    line-height: 1;
+}
+
+.aiec-modal-close:hover {
+    color: #1d2327;
+}
+
+.aiec-modal-title {
+    padding: 20px 20px 15px;
+    margin: 0;
+    border-bottom: 1px solid #c3c4c7;
+    font-size: 16px;
+}
+
+.aiec-modal-body {
+    padding: 20px;
+}
+
+.aiec-post-list {
+    margin: 0 0 20px;
+    padding: 0;
+    list-style: none;
+}
+
+.aiec-post-list li {
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.aiec-post-list li:last-child {
+    border-bottom: none;
+}
+
+.aiec-post-list a {
+    text-decoration: none;
+}
+
+.aiec-post-status {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+.aiec-no-posts {
+    color: #8c8f94;
+    margin: 0 0 20px;
+}
+
+.aiec-modal-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.aiec-suggestions {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #c3c4c7;
+}
+
+.aiec-suggestions h4 {
+    margin: 0 0 15px;
+    font-size: 14px;
+}
+
+.aiec-suggestion-item {
+    background: #f6f7f7;
+    padding: 12px 15px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.aiec-suggestion-item:last-child {
+    margin-bottom: 0;
+}
+
+.aiec-suggestion-item strong {
+    color: #1d2327;
+}
+
+/* Responsive */
+@media (max-width: 782px) {
+    .aiec-day {
+        min-height: 60px;
+    }
+
+    .aiec-post {
+        font-size: 10px;
+        padding: 2px 4px;
+    }
+
+    .aiec-weekdays > div {
+        font-size: 10px;
+        padding: 5px 2px;
+    }
+
+    .aiec-calendar-header {
+        flex-wrap: wrap;
+    }
+
+    .aiec-month-title {
+        order: -1;
+        width: 100%;
+        margin-bottom: 10px;
+    }
+}
