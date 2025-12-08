@@ -364,7 +364,7 @@ Description: [1-2 sentence description]
     }
 
     private function call_google($api_key, $prompt) {
-        $response = wp_remote_post('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' . $api_key, [
+        $response = wp_remote_post('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' . $api_key, [
             'headers' => [
                 'Content-Type' => 'application/json',
             ],

@@ -30,7 +30,7 @@ A lightweight WordPress plugin that provides an editorial calendar with personal
 Select from:
 - **OpenAI** - Uses GPT-4o-mini
 - **Anthropic** - Uses Claude 3.5 Haiku
-- **Google** - Uses Gemini 1.5 Flash
+- **Google** - Uses Gemini 2.0 Flash
 
 ### 2. Enter Your API Key
 
@@ -81,7 +81,7 @@ Easily reschedule your content by dragging posts to a new date:
 |----------|-------|------|
 | OpenAI | gpt-4o-mini | ~$0.001 per suggestion |
 | Anthropic | claude-3-5-haiku-latest | ~$0.001 per suggestion |
-| Google | gemini-1.5-flash | Free tier available |
+| Google | gemini-2.0-flash | Free tier available |
 
 ## Security
 
