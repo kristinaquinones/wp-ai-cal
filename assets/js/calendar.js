@@ -13,8 +13,7 @@
         listPages: 0,
         listFilters: {
             search: '',
-            status: '',
-            type: ''
+            status: ''
         },
 
         init: function() {
@@ -38,7 +37,7 @@
             
             // List view events
             $('.aiec-search-input').on('input', () => this.handleListFilter());
-            $('.aiec-status-filter, .aiec-type-filter').on('change', () => this.handleListFilter());
+            $('.aiec-status-filter').on('change', () => this.handleListFilter());
             $('.aiec-new-post-list').on('click', () => {
                 window.location.href = aiecData.newPostUrl;
             });
@@ -492,7 +491,6 @@
         handleListFilter: function() {
             this.listFilters.search = $('.aiec-search-input').val();
             this.listFilters.status = $('.aiec-status-filter').val();
-            this.listFilters.type = $('.aiec-type-filter').val();
             this.listPage = 1;
             this.loadListPosts();
         },
@@ -504,8 +502,7 @@
                 page: this.listPage,
                 per_page: this.listPerPage,
                 search: this.listFilters.search,
-                status: this.listFilters.status,
-                type: this.listFilters.type
+                status: this.listFilters.status
             }, (response) => {
                 if (response.success) {
                     this.listPosts = response.data.posts;

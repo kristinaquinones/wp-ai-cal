@@ -262,7 +262,7 @@ class AI_Editorial_Calendar {
             'aiec-ai-suggestion',
             __('AI Suggestion', 'ai-editorial-calendar'),
             [$this, 'render_ai_suggestion_meta_box'],
-            ['post', 'page'],
+            'post',
             'side',
             'high'
         );
@@ -319,7 +319,7 @@ class AI_Editorial_Calendar {
         $end = sanitize_text_field(wp_unslash($_POST['end'] ?? ''));
 
         $posts = get_posts([
-            'post_type' => ['post', 'page'],
+            'post_type' => 'post',
             'post_status' => ['publish', 'draft', 'pending', 'future'],
             'date_query' => [
                 [
@@ -334,17 +334,15 @@ class AI_Editorial_Calendar {
         $events = array_map(function($post) {
             // Get primary category
             $primary_category = '';
-            if ($post->post_type === 'post') {
-                $categories = get_the_category($post->ID);
-                if (!empty($categories)) {
-                    // Use first category as primary, or check for Yoast primary category
-                    $primary_category = $categories[0]->name;
-                    $yoast_primary = get_post_meta($post->ID, '_yoast_wpseo_primary_category', true);
-                    if ($yoast_primary) {
-                        $cat = get_category($yoast_primary);
-                        if ($cat && !is_wp_error($cat)) {
-                            $primary_category = $cat->name;
-                        }
+            $categories = get_the_category($post->ID);
+            if (!empty($categories)) {
+                // Use first category as primary, or check for Yoast primary category
+                $primary_category = $categories[0]->name;
+                $yoast_primary = get_post_meta($post->ID, '_yoast_wpseo_primary_category', true);
+                if ($yoast_primary) {
+                    $cat = get_category($yoast_primary);
+                    if ($cat && !is_wp_error($cat)) {
+                        $primary_category = $cat->name;
                     }
                 }
             }
@@ -374,10 +372,9 @@ class AI_Editorial_Calendar {
         $per_page = intval($_POST['per_page'] ?? 20);
         $search = sanitize_text_field(wp_unslash($_POST['search'] ?? ''));
         $status_filter = sanitize_text_field(wp_unslash($_POST['status'] ?? ''));
-        $type_filter = sanitize_text_field(wp_unslash($_POST['type'] ?? ''));
 
         $args = [
-            'post_type' => ['post', 'page'],
+            'post_type' => 'post',
             'post_status' => ['publish', 'draft', 'pending', 'future'],
             'posts_per_page' => $per_page,
             'paged' => $page,
@@ -393,27 +390,21 @@ class AI_Editorial_Calendar {
             $args['post_status'] = [$status_filter];
         }
 
-        if (!empty($type_filter)) {
-            $args['post_type'] = [$type_filter];
-        }
-
         $query = new WP_Query($args);
         $posts = $query->posts;
 
         $events = array_map(function($post) {
             // Get primary category
             $primary_category = '';
-            if ($post->post_type === 'post') {
-                $categories = get_the_category($post->ID);
-                if (!empty($categories)) {
-                    // Use first category as primary, or check for Yoast primary category
-                    $primary_category = $categories[0]->name;
-                    $yoast_primary = get_post_meta($post->ID, '_yoast_wpseo_primary_category', true);
-                    if ($yoast_primary) {
-                        $cat = get_category($yoast_primary);
-                        if ($cat && !is_wp_error($cat)) {
-                            $primary_category = $cat->name;
-                        }
+            $categories = get_the_category($post->ID);
+            if (!empty($categories)) {
+                // Use first category as primary, or check for Yoast primary category
+                $primary_category = $categories[0]->name;
+                $yoast_primary = get_post_meta($post->ID, '_yoast_wpseo_primary_category', true);
+                if ($yoast_primary) {
+                    $cat = get_category($yoast_primary);
+                    if ($cat && !is_wp_error($cat)) {
+                        $primary_category = $cat->name;
                     }
                 }
             }
