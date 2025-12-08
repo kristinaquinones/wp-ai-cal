@@ -4,6 +4,7 @@
     const Calendar = {
         currentDate: new Date(),
         posts: [],
+        draggedPost: null,
 
         init: function() {
             this.bindEvents();
@@ -19,6 +20,11 @@
             $('.aiec-get-suggestions').on('click', () => this.getSuggestions());
 
             $(document).on('click', '.aiec-day', (e) => {
+                // Don't open modal if we just finished dragging
+                if (this.justDropped) {
+                    this.justDropped = false;
+                    return;
+                }
                 const date = $(e.currentTarget).data('date');
                 if (date) this.openModal(date);
             });
@@ -31,6 +37,108 @@
 
             $(document).on('keydown', (e) => {
                 if (e.key === 'Escape') this.closeModal();
+            });
+
+            // Drag and drop events
+            $(document).on('dragstart', '.aiec-post.aiec-draggable', (e) => this.handleDragStart(e));
+            $(document).on('dragend', '.aiec-post.aiec-draggable', (e) => this.handleDragEnd(e));
+            $(document).on('dragover', '.aiec-day', (e) => this.handleDragOver(e));
+            $(document).on('dragleave', '.aiec-day', (e) => this.handleDragLeave(e));
+            $(document).on('drop', '.aiec-day', (e) => this.handleDrop(e));
+        },
+
+        handleDragStart: function(e) {
+            const $post = $(e.currentTarget);
+            const postId = $post.data('post-id');
+
+            this.draggedPost = this.posts.find(p => p.id === postId);
+
+            if (!this.draggedPost) return;
+
+            e.originalEvent.dataTransfer.effectAllowed = 'move';
+            e.originalEvent.dataTransfer.setData('text/plain', postId);
+
+            $post.addClass('aiec-dragging');
+
+            // Add drop zone styling to all days after a brief delay
+            setTimeout(() => {
+                $('.aiec-day').addClass('aiec-drop-zone');
+            }, 0);
+        },
+
+        handleDragEnd: function(e) {
+            $(e.currentTarget).removeClass('aiec-dragging');
+            $('.aiec-day').removeClass('aiec-drop-zone aiec-drag-over');
+            this.draggedPost = null;
+        },
+
+        handleDragOver: function(e) {
+            if (!this.draggedPost) return;
+
+            e.preventDefault();
+            e.originalEvent.dataTransfer.dropEffect = 'move';
+            $(e.currentTarget).addClass('aiec-drag-over');
+        },
+
+        handleDragLeave: function(e) {
+            $(e.currentTarget).removeClass('aiec-drag-over');
+        },
+
+        handleDrop: function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const $day = $(e.currentTarget);
+            $day.removeClass('aiec-drag-over');
+            $('.aiec-day').removeClass('aiec-drop-zone');
+
+            if (!this.draggedPost) return;
+
+            const newDate = $day.data('date');
+            const oldDate = this.draggedPost.date.split(' ')[0];
+
+            // Don't do anything if dropped on the same day
+            if (newDate === oldDate) {
+                this.draggedPost = null;
+                return;
+            }
+
+            this.justDropped = true;
+            this.updatePostDate(this.draggedPost.id, newDate);
+        },
+
+        updatePostDate: function(postId, newDate) {
+            const post = this.posts.find(p => p.id === postId);
+            if (!post) return;
+
+            // Preserve the time portion, just change the date
+            const oldDateTime = post.date.split(' ');
+            const time = oldDateTime[1] || '09:00:00';
+            const newDateTime = `${newDate} ${time}`;
+
+            // Optimistically update UI
+            const oldDate = post.date.split(' ')[0];
+            post.date = newDateTime;
+            this.renderPosts();
+
+            // Send to server
+            $.post(aiecData.ajaxUrl, {
+                action: 'aiec_update_post_date',
+                nonce: aiecData.nonce,
+                post_id: postId,
+                new_date: newDateTime
+            }, (response) => {
+                if (!response.success) {
+                    // Revert on failure
+                    post.date = `${oldDate} ${time}`;
+                    this.renderPosts();
+                    alert(response.data || 'Failed to update post date');
+                }
+            }).fail(() => {
+                // Revert on network error
+                post.date = `${oldDate} ${time}`;
+                this.renderPosts();
+                alert('Network error. Please try again.');
             });
         },
 
@@ -136,7 +244,14 @@
 
                 if ($day.length) {
                     const statusClass = `aiec-status-${post.status}`;
-                    const $post = $(`<div class="aiec-post ${statusClass}" title="${this.escapeHtml(post.title)}">
+                    const isDraggable = ['draft', 'pending', 'future'].includes(post.status);
+                    const draggableClass = isDraggable ? 'aiec-draggable' : '';
+                    const draggableAttr = isDraggable ? 'draggable="true"' : '';
+
+                    const $post = $(`<div class="aiec-post ${statusClass} ${draggableClass}"
+                        data-post-id="${post.id}"
+                        title="${this.escapeHtml(post.title)}"
+                        ${draggableAttr}>
                         ${this.escapeHtml(post.title)}
                     </div>`);
 

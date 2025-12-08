@@ -5,6 +5,7 @@ A lightweight WordPress plugin that provides an editorial calendar with personal
 ## Features
 
 - **Visual Calendar** - Monthly grid view of all posts and pages with color-coded status indicators
+- **Drag and Drop Scheduling** - Reschedule drafts and scheduled posts by dragging them to a new date
 - **AI Content Suggestions** - Get 3 personalized post ideas for any date based on your site context
 - **Multi-Provider Support** - Works with OpenAI, Anthropic, or Google AI
 - **Secure API Storage** - API keys are encrypted using WordPress authentication salts
@@ -57,6 +58,16 @@ Navigate to **Editorial Calendar** in the WordPress admin menu. The calendar dis
   - **Yellow** - Draft
   - **Blue** - Pending Review
   - **Gray** - Scheduled
+
+### Drag and Drop Scheduling
+
+Easily reschedule your content by dragging posts to a new date:
+
+1. Hover over a draft, pending, or scheduled post (cursor changes to grab icon)
+2. Drag the post to your desired date
+3. Drop it on the target day - the post date updates instantly
+
+**Note:** Published posts cannot be dragged to prevent accidental changes to live content.
 
 ### Getting AI Suggestions
 
