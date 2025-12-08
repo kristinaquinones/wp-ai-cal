@@ -36,6 +36,7 @@ class AI_Editorial_Calendar {
         add_action('wp_ajax_aiec_get_suggestions', [$this, 'ajax_get_suggestions']);
         add_action('wp_ajax_aiec_update_post_date', [$this, 'ajax_update_post_date']);
         add_action('admin_post_aiec_uninstall', [$this, 'handle_uninstall']);
+        add_action('wp_ajax_aiec_create_draft', [$this, 'ajax_create_draft']);
     }
 
     public function add_admin_menu() {
@@ -67,8 +68,26 @@ class AI_Editorial_Calendar {
             'sanitize_callback' => [$this, 'sanitize_api_key']
         ]);
         register_setting('aiec_settings', 'aiec_site_context', [
-            'sanitize_callback' => 'sanitize_textarea_field'
+            'sanitize_callback' => [$this, 'sanitize_context_field']
         ]);
+        register_setting('aiec_settings', 'aiec_tone', [
+            'sanitize_callback' => [$this, 'sanitize_short_field']
+        ]);
+        register_setting('aiec_settings', 'aiec_avoid', [
+            'sanitize_callback' => [$this, 'sanitize_context_field']
+        ]);
+    }
+
+    public function sanitize_context_field($value) {
+        $value = sanitize_textarea_field($value);
+        // Cap at 500 characters to keep tokens down
+        return mb_substr($value, 0, 500);
+    }
+
+    public function sanitize_short_field($value) {
+        $value = sanitize_text_field($value);
+        // Cap at 100 characters
+        return mb_substr($value, 0, 100);
     }
 
     public function sanitize_provider($value) {
@@ -81,8 +100,8 @@ class AI_Editorial_Calendar {
         if (empty($value)) {
             return get_option('aiec_api_key');
         }
-        // Store as-is (WordPress options table is already protected)
-        return sanitize_text_field($value);
+        // Only trim whitespace - don't use sanitize_text_field as it can corrupt API keys
+        return trim($value);
     }
 
     public function get_api_key() {
@@ -141,6 +160,8 @@ class AI_Editorial_Calendar {
         delete_option('aiec_ai_provider');
         delete_option('aiec_api_key');
         delete_option('aiec_site_context');
+        delete_option('aiec_tone');
+        delete_option('aiec_avoid');
 
         wp_safe_redirect(add_query_arg('aiec-deleted', 'true', admin_url('admin.php?page=aiec-settings')));
         exit;
@@ -226,6 +247,49 @@ class AI_Editorial_Calendar {
         wp_send_json_success();
     }
 
+    public function ajax_create_draft() {
+        check_ajax_referer('aiec_nonce', 'nonce');
+
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error('Unauthorized');
+        }
+
+        $title = sanitize_text_field(wp_unslash($_POST['title'] ?? ''));
+        $description = sanitize_textarea_field(wp_unslash($_POST['description'] ?? ''));
+        $date = sanitize_text_field(wp_unslash($_POST['date'] ?? ''));
+
+        if (empty($title)) {
+            wp_send_json_error('Title is required');
+        }
+
+        // Validate date format
+        if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $date)) {
+            wp_send_json_error('Invalid date format');
+        }
+
+        // Build post content with hidden description
+        $content = '';
+        if (!empty($description)) {
+            $content = '<!-- wp:paragraph {"className":"aiec-suggestion-note"} -->' . "\n";
+            $content .= '<p class="aiec-suggestion-note" style="display:none;">' . esc_html($description) . '</p>' . "\n";
+            $content .= '<!-- /wp:paragraph -->';
+        }
+
+        $post_id = wp_insert_post([
+            'post_title' => $title,
+            'post_content' => $content,
+            'post_status' => 'draft',
+            'post_date' => $date,
+            'post_date_gmt' => get_gmt_from_date($date),
+        ]);
+
+        if (is_wp_error($post_id)) {
+            wp_send_json_error($post_id->get_error_message());
+        }
+
+        wp_send_json_success(['id' => $post_id]);
+    }
+
     public function ajax_get_suggestions() {
         check_ajax_referer('aiec_nonce', 'nonce');
 
@@ -240,17 +304,22 @@ class AI_Editorial_Calendar {
 
         $provider = get_option('aiec_ai_provider', 'openai');
         $context = get_option('aiec_site_context', '');
+        $tone = get_option('aiec_tone', '');
+        $avoid = get_option('aiec_avoid', '');
         $date = sanitize_text_field(wp_unslash($_POST['date'] ?? ''));
 
-        // Get recent posts for context
+        // Get recent posts for context (exclude default placeholder posts)
         $recent_posts = get_posts([
             'posts_per_page' => 10,
             'post_status' => ['publish', 'draft', 'future'],
         ]);
 
-        $recent_titles = array_map(fn($p) => $p->post_title, $recent_posts);
+        $recent_titles = array_filter(
+            array_map(fn($p) => $p->post_title, $recent_posts),
+            fn($title) => !empty($title) && stripos($title, 'Hello World') === false
+        );
 
-        $prompt = $this->build_prompt($context, $recent_titles, $date);
+        $prompt = $this->build_prompt($context, $tone, $avoid, $recent_titles, $date);
 
         $suggestions = $this->call_ai_api($provider, $api_key, $prompt);
 
@@ -261,27 +330,27 @@ class AI_Editorial_Calendar {
         wp_send_json_success($suggestions);
     }
 
-    private function build_prompt($context, $recent_titles, $date) {
-        $titles_list = implode("\n- ", $recent_titles);
+    private function build_prompt($context, $tone, $avoid, $recent_titles, $date) {
+        $titles_list = implode(', ', array_slice(array_values($recent_titles), 0, 5));
 
-        return "You are a content strategist. Based on the following context, suggest 3 blog post ideas.
+        $prompt = "Suggest 3 blog posts for {$date}.";
 
-Site Context: {$context}
+        if ($context) {
+            $prompt .= " Site: {$context}.";
+        }
+        if ($tone) {
+            $prompt .= " Tone: {$tone}.";
+        }
+        if ($titles_list) {
+            $prompt .= " Recent: {$titles_list}.";
+        }
+        if ($avoid) {
+            $prompt .= " Avoid: {$avoid}.";
+        }
 
-Recent posts:
-- {$titles_list}
+        $prompt .= " Format: Title: X | Desc: Y (one line each, no duplicates)";
 
-Target date: {$date}
-
-Provide 3 unique content ideas that:
-1. Complement existing content without duplicating
-2. Are timely and relevant
-3. Would engage the target audience
-
-Format each suggestion as:
-Title: [title]
-Description: [1-2 sentence description]
----";
+        return $prompt;
     }
 
     private function call_ai_api($provider, $api_key, $prompt) {
@@ -364,7 +433,7 @@ Description: [1-2 sentence description]
     }
 
     private function call_google($api_key, $prompt) {
-        $response = wp_remote_post('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' . $api_key, [
+        $response = wp_remote_post('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=' . $api_key, [
             'headers' => [
                 'Content-Type' => 'application/json',
             ],

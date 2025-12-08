@@ -6,7 +6,8 @@ A lightweight WordPress plugin that provides an editorial calendar with personal
 
 - **Visual Calendar** - Monthly grid view of all posts and pages with color-coded status indicators
 - **Drag and Drop Scheduling** - Reschedule drafts and scheduled posts by dragging them to a new date
-- **AI Content Suggestions** - Get 3 personalized post ideas for any date based on your site context
+- **AI Content Suggestions** - Get 3 personalized post ideas for any future date
+- **One-Click Draft Creation** - Create drafts directly from AI suggestions
 - **Multi-Provider Support** - Works with OpenAI, Anthropic, or Google AI
 - **Minimal Configuration** - Just 3 settings to get started
 
@@ -30,7 +31,7 @@ A lightweight WordPress plugin that provides an editorial calendar with personal
 Select from:
 - **OpenAI** - Uses GPT-4o-mini
 - **Anthropic** - Uses Claude 3.5 Haiku
-- **Google** - Uses Gemini 2.0 Flash
+- **Google** - Uses Gemini 2.5 Flash Lite
 
 ### 2. Enter Your API Key
 
@@ -39,11 +40,22 @@ Get an API key from your chosen provider:
 - Anthropic: https://console.anthropic.com/settings/keys
 - Google AI: https://aistudio.google.com/apikey
 
-### 3. Add Site Context
+### 3. Configure Content Settings
 
-Describe your website, target audience, and content goals. This helps the AI generate more relevant suggestions. Example:
+**Site Context** (max 500 characters)
+Describe your website, target audience, and content goals. Example:
 
-> A tech blog for small business owners covering productivity tools, automation, and digital marketing tips. Our audience is non-technical but eager to leverage technology.
+> A tech blog for small business owners covering productivity tools, automation, and digital marketing tips.
+
+**Voice & Tone** (max 100 characters)
+Define the writing style for suggestions. Example:
+
+> professional but approachable, actionable
+
+**Topics to Avoid** (max 500 characters)
+List topics, phrases, or approaches the AI should not suggest. Example:
+
+> politics, competitor mentions, overly technical jargon, clickbait titles
 
 ## Usage
 
@@ -70,10 +82,14 @@ Easily reschedule your content by dragging posts to a new date:
 
 ### Getting AI Suggestions
 
-1. Click on any day in the calendar
+1. Click on any future date in the calendar
 2. Click **Get AI Suggestions**
 3. The AI will analyze your recent content and generate 3 unique post ideas
-4. Use these suggestions to create new content that complements your existing posts
+4. Click **Create Draft** on any suggestion to instantly create a draft post
+
+The draft will be scheduled for a random time on the selected date, with the AI's description saved as a hidden note in the post editor.
+
+**Note:** AI suggestions are only available for today and future dates. Past dates are view-only for existing content.
 
 ## Supported AI Models
 
@@ -81,7 +97,7 @@ Easily reschedule your content by dragging posts to a new date:
 |----------|-------|------|
 | OpenAI | gpt-4o-mini | ~$0.001 per suggestion |
 | Anthropic | claude-3-5-haiku-latest | ~$0.001 per suggestion |
-| Google | gemini-2.0-flash | Free tier available |
+| Google | gemini-2.5-flash-lite | Free tier available |
 
 ## Security
 

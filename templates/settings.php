@@ -57,8 +57,28 @@ if (!defined('ABSPATH')) {
                     <label for="aiec_site_context"><?php esc_html_e('Site Context', 'ai-editorial-calendar'); ?></label>
                 </th>
                 <td>
-                    <textarea name="aiec_site_context" id="aiec_site_context" rows="4" class="large-text"><?php echo esc_textarea(get_option('aiec_site_context', '')); ?></textarea>
-                    <p class="description"><?php esc_html_e('Describe your site, audience, and content goals. This helps the AI provide better suggestions.', 'ai-editorial-calendar'); ?></p>
+                    <textarea name="aiec_site_context" id="aiec_site_context" rows="3" class="large-text" maxlength="500"><?php echo esc_textarea(get_option('aiec_site_context', '')); ?></textarea>
+                    <p class="description"><?php esc_html_e('Describe your site, audience, and content goals. (Max 500 characters)', 'ai-editorial-calendar'); ?></p>
+                </td>
+            </tr>
+
+            <tr>
+                <th scope="row">
+                    <label for="aiec_tone"><?php esc_html_e('Voice & Tone', 'ai-editorial-calendar'); ?></label>
+                </th>
+                <td>
+                    <input type="text" name="aiec_tone" id="aiec_tone" class="regular-text" maxlength="100" value="<?php echo esc_attr(get_option('aiec_tone', '')); ?>" placeholder="<?php esc_attr_e('e.g., professional, casual, witty, educational', 'ai-editorial-calendar'); ?>">
+                    <p class="description"><?php esc_html_e('The writing style for suggestions. (Max 100 characters)', 'ai-editorial-calendar'); ?></p>
+                </td>
+            </tr>
+
+            <tr>
+                <th scope="row">
+                    <label for="aiec_avoid"><?php esc_html_e('Topics to Avoid', 'ai-editorial-calendar'); ?></label>
+                </th>
+                <td>
+                    <textarea name="aiec_avoid" id="aiec_avoid" rows="2" class="large-text" maxlength="500"><?php echo esc_textarea(get_option('aiec_avoid', '')); ?></textarea>
+                    <p class="description"><?php esc_html_e('Topics, phrases, or approaches the AI should not suggest. (Max 500 characters)', 'ai-editorial-calendar'); ?></p>
                 </td>
             </tr>
         </table>

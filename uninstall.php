@@ -12,3 +12,5 @@ if (!defined('WP_UNINSTALL_PLUGIN')) {
 delete_option('aiec_ai_provider');
 delete_option('aiec_api_key');
 delete_option('aiec_site_context');
+delete_option('aiec_tone');
+delete_option('aiec_avoid');

@@ -25,8 +25,22 @@
                     this.justDropped = false;
                     return;
                 }
+                // Don't open modal for past dates unless clicking on a post
                 const date = $(e.currentTarget).data('date');
+                if (this.isPastDate(date) && !$(e.target).hasClass('aiec-post')) {
+                    return;
+                }
                 if (date) this.openModal(date);
+            });
+
+            // Create draft from suggestion
+            $(document).on('click', '.aiec-create-draft', (e) => {
+                e.preventDefault();
+                const $btn = $(e.currentTarget);
+                // Decode base64 encoded data
+                const title = decodeURIComponent(atob($btn.data('title')));
+                const desc = decodeURIComponent(atob($btn.data('desc') || ''));
+                this.createDraft(title, desc);
             });
 
             $(document).on('click', '.aiec-modal', (e) => {
@@ -174,7 +188,9 @@
             for (let i = firstDay - 1; i >= 0; i--) {
                 const day = daysInPrevMonth - i;
                 const date = new Date(year, month - 1, day);
-                html += `<div class="aiec-day aiec-day-other" data-date="${this.formatDate(date)}">
+                const dateStr = this.formatDate(date);
+                const isPast = this.isPastDate(dateStr);
+                html += `<div class="aiec-day aiec-day-other${isPast ? ' aiec-day-past' : ''}" data-date="${dateStr}">
                     <span class="aiec-day-number">${day}</span>
                     <div class="aiec-day-posts"></div>
                 </div>`;
@@ -185,8 +201,9 @@
                 const date = new Date(year, month, day);
                 const dateStr = this.formatDate(date);
                 const isToday = dateStr === todayStr;
+                const isPast = this.isPastDate(dateStr);
 
-                html += `<div class="aiec-day${isToday ? ' aiec-day-today' : ''}" data-date="${dateStr}">
+                html += `<div class="aiec-day${isToday ? ' aiec-day-today' : ''}${isPast ? ' aiec-day-past' : ''}" data-date="${dateStr}">
                     <span class="aiec-day-number">${day}</span>
                     <div class="aiec-day-posts"></div>
                 </div>`;
@@ -210,6 +227,50 @@
 
         formatDate: function(date) {
             return date.toISOString().split('T')[0];
+        },
+
+        isPastDate: function(dateStr) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const date = new Date(dateStr + 'T00:00:00');
+            return date < today;
+        },
+
+        getRandomFutureTime: function() {
+            const now = new Date();
+            // Random hour between current hour+1 and 20 (8 PM)
+            const minHour = Math.max(now.getHours() + 1, 9);
+            const hour = Math.floor(Math.random() * (20 - minHour + 1)) + minHour;
+            const minute = Math.floor(Math.random() * 4) * 15; // 0, 15, 30, or 45
+            return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
+        },
+
+        createDraft: function(title, desc) {
+            const date = $('#aiec-modal').data('date');
+            const time = this.getRandomFutureTime();
+            const dateTime = `${date} ${time}`;
+
+            // Clean up title (remove "Title:" prefix if present)
+            const cleanTitle = title.replace(/^Title:\s*/i, '').trim();
+            const cleanDesc = desc.replace(/^Desc:\s*/i, '').trim();
+
+            $.post(aiecData.ajaxUrl, {
+                action: 'aiec_create_draft',
+                nonce: aiecData.nonce,
+                title: cleanTitle,
+                description: cleanDesc,
+                date: dateTime
+            }, (response) => {
+                if (response.success) {
+                    // Reload posts and close modal
+                    this.loadPosts();
+                    this.closeModal();
+                } else {
+                    alert(response.data || 'Failed to create draft');
+                }
+            }).fail(() => {
+                alert('Network error. Please try again.');
+            });
         },
 
         loadPosts: function() {
@@ -271,6 +332,7 @@
                 month: 'long',
                 day: 'numeric'
             });
+            const isPast = this.isPastDate(date);
 
             $('.aiec-modal-title').text(formattedDate);
 
@@ -285,13 +347,21 @@
                 });
                 postsHtml += '</ul>';
             } else {
-                postsHtml = '<p class="aiec-no-posts">No posts scheduled for this day.</p>';
+                postsHtml = isPast
+                    ? '<p class="aiec-no-posts">No posts on this day.</p>'
+                    : '<p class="aiec-no-posts">No posts scheduled for this day.</p>';
             }
 
             $('.aiec-modal-posts').html(postsHtml);
 
-            const newPostUrl = `${window.location.origin}/wp-admin/post-new.php`;
-            $('.aiec-new-post').attr('href', newPostUrl);
+            // Hide action buttons for past dates
+            if (isPast) {
+                $('.aiec-new-post, .aiec-get-suggestions').hide();
+            } else {
+                const newPostUrl = `${window.location.origin}/wp-admin/post-new.php`;
+                $('.aiec-new-post').attr('href', newPostUrl).show();
+                $('.aiec-get-suggestions').show();
+            }
 
             $('.aiec-suggestions').hide();
             $('.aiec-suggestions-content').empty();
@@ -336,27 +406,27 @@
         },
 
         formatSuggestions: function(text) {
-            // Parse the AI response and format it nicely
-            const suggestions = text.split('---').filter(s => s.trim());
+            // Parse lines - each suggestion is one line with "Title: X | Desc: Y" format
+            const lines = text.split('\n').filter(l => l.trim() && l.includes('Title:'));
 
-            if (suggestions.length === 0) {
+            if (lines.length === 0) {
                 return `<div class="aiec-suggestion-item">${this.escapeHtml(text)}</div>`;
             }
 
-            return suggestions.map(suggestion => {
-                const lines = suggestion.trim().split('\n').filter(l => l.trim());
-                let html = '<div class="aiec-suggestion-item">';
+            return lines.map(line => {
+                const parts = line.split('|').map(p => p.trim());
+                const title = parts[0] || line;
+                const desc = parts[1] || '';
 
-                lines.forEach(line => {
-                    if (line.toLowerCase().startsWith('title:')) {
-                        html += `<strong>${this.escapeHtml(line)}</strong><br>`;
-                    } else {
-                        html += `${this.escapeHtml(line)}<br>`;
-                    }
-                });
+                // Base64 encode to preserve special characters in data attributes
+                const titleData = btoa(encodeURIComponent(title));
+                const descData = btoa(encodeURIComponent(desc));
 
-                html += '</div>';
-                return html;
+                return `<div class="aiec-suggestion-item">
+                    <strong>${this.escapeHtml(title)}</strong><br>
+                    ${desc ? this.escapeHtml(desc) + '<br>' : ''}
+                    <button type="button" class="button button-small aiec-create-draft" data-title="${titleData}" data-desc="${descData}">Create Draft</button>
+                </div>`;
             }).join('');
         }
     };
