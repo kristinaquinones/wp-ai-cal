@@ -59,11 +59,20 @@ class AI_Editorial_Calendar {
     }
 
     public function register_settings() {
-        register_setting('aiec_settings', 'aiec_ai_provider');
+        register_setting('aiec_settings', 'aiec_ai_provider', [
+            'sanitize_callback' => [$this, 'sanitize_provider']
+        ]);
         register_setting('aiec_settings', 'aiec_api_key', [
             'sanitize_callback' => [$this, 'encrypt_api_key']
         ]);
-        register_setting('aiec_settings', 'aiec_site_context');
+        register_setting('aiec_settings', 'aiec_site_context', [
+            'sanitize_callback' => 'sanitize_textarea_field'
+        ]);
+    }
+
+    public function sanitize_provider($value) {
+        $allowed = ['openai', 'anthropic', 'google'];
+        return in_array($value, $allowed, true) ? $value : 'openai';
     }
 
     public function encrypt_api_key($value) {
@@ -103,6 +112,20 @@ class AI_Editorial_Calendar {
                 'getSuggestions' => __('Get AI Suggestions', 'ai-editorial-calendar'),
                 'loading' => __('Loading...', 'ai-editorial-calendar'),
                 'noApiKey' => __('Please configure your AI API key in Settings.', 'ai-editorial-calendar'),
+                'months' => [
+                    __('January', 'ai-editorial-calendar'),
+                    __('February', 'ai-editorial-calendar'),
+                    __('March', 'ai-editorial-calendar'),
+                    __('April', 'ai-editorial-calendar'),
+                    __('May', 'ai-editorial-calendar'),
+                    __('June', 'ai-editorial-calendar'),
+                    __('July', 'ai-editorial-calendar'),
+                    __('August', 'ai-editorial-calendar'),
+                    __('September', 'ai-editorial-calendar'),
+                    __('October', 'ai-editorial-calendar'),
+                    __('November', 'ai-editorial-calendar'),
+                    __('December', 'ai-editorial-calendar'),
+                ],
             ]
         ]);
     }
@@ -122,8 +145,8 @@ class AI_Editorial_Calendar {
             wp_send_json_error('Unauthorized');
         }
 
-        $start = sanitize_text_field($_POST['start'] ?? '');
-        $end = sanitize_text_field($_POST['end'] ?? '');
+        $start = sanitize_text_field(wp_unslash($_POST['start'] ?? ''));
+        $end = sanitize_text_field(wp_unslash($_POST['end'] ?? ''));
 
         $posts = get_posts([
             'post_type' => ['post', 'page'],
@@ -160,10 +183,21 @@ class AI_Editorial_Calendar {
         }
 
         $post_id = intval($_POST['post_id'] ?? 0);
-        $new_date = sanitize_text_field($_POST['new_date'] ?? '');
+        $new_date = sanitize_text_field(wp_unslash($_POST['new_date'] ?? ''));
 
         if (!$post_id || !$new_date) {
             wp_send_json_error('Invalid parameters');
+        }
+
+        // Validate date format (YYYY-MM-DD HH:MM:SS)
+        if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $new_date)) {
+            wp_send_json_error('Invalid date format');
+        }
+
+        // Validate it's a real date
+        $date_parts = date_parse($new_date);
+        if ($date_parts['error_count'] > 0 || $date_parts['warning_count'] > 0) {
+            wp_send_json_error('Invalid date');
         }
 
         $post = get_post($post_id);
@@ -198,7 +232,7 @@ class AI_Editorial_Calendar {
 
         $provider = get_option('aiec_ai_provider', 'openai');
         $context = get_option('aiec_site_context', '');
-        $date = sanitize_text_field($_POST['date'] ?? '');
+        $date = sanitize_text_field(wp_unslash($_POST['date'] ?? ''));
 
         // Get recent posts for context
         $recent_posts = get_posts([

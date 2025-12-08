@@ -33,9 +33,9 @@ if (!defined('ABSPATH')) {
                     <p class="description">
                         <?php esc_html_e('Enter your API key. It will be encrypted before storage.', 'ai-editorial-calendar'); ?>
                         <br>
-                        <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI</a> |
-                        <a href="https://console.anthropic.com/settings/keys" target="_blank">Anthropic</a> |
-                        <a href="https://aistudio.google.com/apikey" target="_blank">Google AI</a>
+                        <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI</a> |
+                        <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">Anthropic</a> |
+                        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI</a>
                     </p>
                 </td>
             </tr>

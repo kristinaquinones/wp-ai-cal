@@ -158,10 +158,7 @@
             const year = this.currentDate.getFullYear();
             const month = this.currentDate.getMonth();
 
-            const monthNames = [
-                'January', 'February', 'March', 'April', 'May', 'June',
-                'July', 'August', 'September', 'October', 'November', 'December'
-            ];
+            const monthNames = aiecData.strings.months;
 
             $('.aiec-month-title').text(`${monthNames[month]} ${year}`);
 
