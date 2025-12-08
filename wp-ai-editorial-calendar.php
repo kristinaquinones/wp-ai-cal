@@ -64,7 +64,7 @@ class AI_Editorial_Calendar {
             'sanitize_callback' => [$this, 'sanitize_provider']
         ]);
         register_setting('aiec_settings', 'aiec_api_key', [
-            'sanitize_callback' => [$this, 'encrypt_api_key']
+            'sanitize_callback' => [$this, 'sanitize_api_key']
         ]);
         register_setting('aiec_settings', 'aiec_site_context', [
             'sanitize_callback' => 'sanitize_textarea_field'
@@ -76,43 +76,17 @@ class AI_Editorial_Calendar {
         return in_array($value, $allowed, true) ? $value : 'openai';
     }
 
-    public function encrypt_api_key($value) {
+    public function sanitize_api_key($value) {
+        // If empty, keep existing value
         if (empty($value)) {
             return get_option('aiec_api_key');
         }
-        if (defined('LOGGED_IN_KEY') && defined('LOGGED_IN_SALT') && strlen(LOGGED_IN_SALT) >= 16) {
-            $iv = substr(LOGGED_IN_SALT, 0, 16);
-            $encrypted = openssl_encrypt($value, 'AES-256-CBC', LOGGED_IN_KEY, 0, $iv);
-            if ($encrypted !== false) {
-                return base64_encode($encrypted);
-            }
-        }
-        // Fallback: simple base64 encoding (not secure, but functional)
-        return base64_encode($value);
+        // Store as-is (WordPress options table is already protected)
+        return sanitize_text_field($value);
     }
 
-    public function decrypt_api_key() {
-        $encrypted = get_option('aiec_api_key');
-        if (empty($encrypted)) {
-            return '';
-        }
-
-        $decoded = base64_decode($encrypted, true);
-        if ($decoded === false) {
-            return '';
-        }
-
-        if (defined('LOGGED_IN_KEY') && defined('LOGGED_IN_SALT') && strlen(LOGGED_IN_SALT) >= 16) {
-            $iv = substr(LOGGED_IN_SALT, 0, 16);
-            $decrypted = openssl_decrypt($decoded, 'AES-256-CBC', LOGGED_IN_KEY, 0, $iv);
-            if ($decrypted !== false) {
-                return $decrypted;
-            }
-            // Decryption failed - might be stored with fallback encoding
-        }
-
-        // Fallback: assume it was base64 encoded without encryption
-        return $decoded;
+    public function get_api_key() {
+        return get_option('aiec_api_key', '');
     }
 
     public function enqueue_assets($hook) {
@@ -126,7 +100,7 @@ class AI_Editorial_Calendar {
         wp_localize_script('aiec-calendar', 'aiecData', [
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('aiec_nonce'),
-            'hasApiKey' => !empty($this->decrypt_api_key()),
+            'hasApiKey' => !empty($this->get_api_key()),
             'strings' => [
                 'getSuggestions' => __('Get AI Suggestions', 'ai-editorial-calendar'),
                 'loading' => __('Loading...', 'ai-editorial-calendar'),
@@ -259,7 +233,7 @@ class AI_Editorial_Calendar {
             wp_send_json_error('Unauthorized');
         }
 
-        $api_key = $this->decrypt_api_key();
+        $api_key = $this->get_api_key();
         if (empty($api_key)) {
             wp_send_json_error(__('API key not configured', 'ai-editorial-calendar'));
         }

@@ -8,7 +8,6 @@ A lightweight WordPress plugin that provides an editorial calendar with personal
 - **Drag and Drop Scheduling** - Reschedule drafts and scheduled posts by dragging them to a new date
 - **AI Content Suggestions** - Get 3 personalized post ideas for any date based on your site context
 - **Multi-Provider Support** - Works with OpenAI, Anthropic, or Google AI
-- **Secure API Storage** - API keys are encrypted using WordPress authentication salts
 - **Minimal Configuration** - Just 3 settings to get started
 
 ## Requirements
@@ -86,9 +85,10 @@ Easily reschedule your content by dragging posts to a new date:
 
 ## Security
 
-- API keys are encrypted before storage using WordPress LOGGED_IN_KEY and LOGGED_IN_SALT
+- API keys are stored in the WordPress options table (protected by database security)
 - All AJAX requests are protected with nonce verification
 - Capability checks ensure only authorized users can access features
+- Settings page requires `manage_options` capability
 
 ## License
 

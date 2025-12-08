@@ -43,7 +43,7 @@ if (!defined('ABSPATH')) {
                 <td>
                     <input type="password" name="aiec_api_key" id="aiec_api_key" class="regular-text" placeholder="<?php echo get_option('aiec_api_key') ? '••••••••••••••••' : ''; ?>">
                     <p class="description">
-                        <?php esc_html_e('Enter your API key. It will be encrypted before storage.', 'ai-editorial-calendar'); ?>
+                        <?php esc_html_e('Enter your API key.', 'ai-editorial-calendar'); ?>
                         <br>
                         <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI</a> |
                         <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">Anthropic</a> |

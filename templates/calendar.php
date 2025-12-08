@@ -3,7 +3,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-$has_api_key = !empty(AI_Editorial_Calendar::get_instance()->decrypt_api_key());
+$has_api_key = !empty(AI_Editorial_Calendar::get_instance()->get_api_key());
 ?>
 <div class="wrap aiec-wrap">
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
