@@ -43,12 +43,6 @@
             });
             $('.aiec-get-suggestions-list').on('click', () => this.getSuggestionsForList());
             
-            // List view drag and drop
-            $(document).on('dragstart', '.aiec-list-row.aiec-draggable', (e) => this.handleListDragStart(e));
-            $(document).on('dragend', '.aiec-list-row.aiec-draggable', (e) => this.handleListDragEnd(e));
-            $(document).on('dragover', '.aiec-list-row', (e) => this.handleListDragOver(e));
-            $(document).on('drop', '.aiec-list-row', (e) => this.handleListDrop(e));
-            
             // Tooltips for calendar posts
             $(document).on('mouseenter', '.aiec-post', (e) => this.showTooltip(e.currentTarget));
             $(document).on('mouseleave', '.aiec-post', () => this.hideTooltip());
@@ -350,14 +344,17 @@
                     const statusClass = `aiec-status-${post.status}`;
                     const isDraggable = ['draft', 'pending', 'future'].includes(post.status);
                     const draggableClass = isDraggable ? 'aiec-draggable' : '';
-                    const draggableAttr = isDraggable ? 'draggable="true"' : '';
 
                     const $post = $(`<div class="aiec-post ${statusClass} ${draggableClass}"
                         data-post-id="${post.id}"
-                        data-full-title="${this.escapeHtml(post.title)}"
-                        ${draggableAttr}>
+                        data-full-title="${this.escapeHtml(post.title)}">
                         ${this.escapeHtml(post.title)}
                     </div>`);
+
+                    // Set draggable property directly on the DOM element
+                    if (isDraggable) {
+                        $post[0].draggable = true;
+                    }
 
                     $day.find('.aiec-day-posts').append($post);
                 }
@@ -537,14 +534,9 @@
                 };
                 const statusLabel = statusLabels[post.status] || post.status;
                 
-                const isDraggable = ['draft', 'pending', 'future'].includes(post.status);
-                const draggableClass = isDraggable ? 'aiec-draggable' : '';
-                const draggableAttr = isDraggable ? 'draggable="true"' : '';
-                
                 const row = `
-                    <tr class="aiec-list-row ${draggableClass}" data-post-id="${post.id}" ${draggableAttr}>
+                    <tr class="aiec-list-row" data-post-id="${post.id}">
                         <td class="aiec-col-drag">
-                            ${isDraggable ? '<span class="aiec-drag-handle">⋮⋮</span>' : ''}
                         </td>
                         <td class="aiec-col-date">
                             <div class="aiec-list-date">${dateStr}</div>
@@ -625,6 +617,7 @@
             });
         },
 
+<<<<<<< Updated upstream
         handleListDragStart: function(e) {
             const $row = $(e.currentTarget);
             const postId = parseInt($row.data('post-id'));
@@ -729,6 +722,8 @@
             $targetRow.removeClass('aiec-drag-over');
         },
 
+=======
+>>>>>>> Stashed changes
         getSuggestionsForList: function() {
             if (!aiecData.hasApiKey) {
                 alert(aiecData.strings.noApiKey);

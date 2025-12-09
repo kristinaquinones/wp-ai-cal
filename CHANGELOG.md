@@ -9,7 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Monthly calendar view displaying posts with color-coded status indicators
 - List view with table format, search, status filtering, and pagination
+<<<<<<< Updated upstream
 - Drag and drop scheduling for draft, pending, and scheduled posts (calendar and list views)
+=======
+- Drag and drop scheduling for draft, pending, and scheduled posts (calendar view)
+- AI-powered content suggestions with one-click draft creation
+>>>>>>> Stashed changes
 - AI Suggestion meta box in post editor for drafts created from calendar
 - "Generate an Outline" button with automatic outline generation (plain text, block-editor friendly)
 - Multi-provider AI support (OpenAI, Anthropic, Google)
@@ -24,9 +29,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+<<<<<<< Updated upstream
 - Drag and drop in list view now correctly updates post dates (was using wrong data array and render method)
 
 ### Code Quality
+=======
+- Pages no longer appear in calendar or list view (posts only)
+
+### Removed
+
+- Drag and drop functionality in list view (deferred to future update due to technical complexity)
+
+### Changed
+>>>>>>> Stashed changes
 
 - Refactored duplicate code: extracted primary category logic and post event building into reusable helper methods
 - Consolidated repeated calendar URL references into single helper method

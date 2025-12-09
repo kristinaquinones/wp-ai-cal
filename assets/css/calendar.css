@@ -210,7 +210,6 @@
     line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    cursor: grab;
     transition: all 0.15s ease;
 }
 
@@ -748,33 +747,6 @@
     background: var(--color-bg);
 }
 
-.aiec-list-table tbody tr.aiec-draggable {
-    cursor: grab;
-    user-select: none;
-}
-
-.aiec-list-table tbody tr.aiec-draggable:active {
-    cursor: grabbing;
-}
-
-.aiec-list-table tbody tr.aiec-draggable .aiec-drag-handle {
-    pointer-events: auto;
-}
-
-.aiec-list-table tbody tr.aiec-dragging {
-    opacity: 0.5;
-    cursor: grabbing;
-}
-
-.aiec-list-table tbody tr.aiec-dragging a,
-.aiec-list-table tbody tr.aiec-dragging button {
-    pointer-events: none;
-}
-
-.aiec-list-table tbody tr.aiec-drag-over {
-    background: rgba(0, 102, 255, 0.08);
-    border-top: 2px solid var(--color-accent);
-}
 
 .aiec-col-drag {
     width: 40px;
