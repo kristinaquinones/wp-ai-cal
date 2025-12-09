@@ -34,6 +34,24 @@
                     this.closeConfirmModal();
                 }
             });
+            
+            // Prevent link clicks from interfering with delete button
+            $(document).on('click', '.aiec-modal-post-link', (e) => {
+                // Only prevent if clicking near the delete button
+                const $link = $(e.currentTarget);
+                const $li = $link.closest('.aiec-modal-post-item');
+                const clickX = e.pageX;
+                const $deleteBtn = $li.find('.aiec-delete-post');
+                if ($deleteBtn.length) {
+                    const btnOffset = $deleteBtn.offset();
+                    const btnWidth = $deleteBtn.outerWidth();
+                    // If click is in the delete button area, prevent link navigation
+                    if (clickX >= btnOffset.left && clickX <= btnOffset.left + btnWidth) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                }
+            });
             $('.aiec-get-suggestions').on('click', () => this.getSuggestions());
             
             // View toggle
@@ -90,17 +108,20 @@
             });
 
             // Delete/trash post
-            $(document).on('click', '.aiec-delete-post', (e) => {
+            $(document).on('click', '.aiec-delete-post', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                const $btn = $(e.currentTarget);
+                const $btn = $(this);
                 const postId = parseInt($btn.data('post-id'));
                 
-                if (!postId) return;
+                if (!postId) {
+                    console.error('No post ID found for delete button');
+                    return;
+                }
                 
-                const self = this;
-                this.showConfirmModal(
+                const self = Calendar;
+                self.showConfirmModal(
                     'Are you sure you want to trash this post? It will be moved to the trash and can be restored later.',
                     function() {
                         $btn.prop('disabled', true);
@@ -136,6 +157,13 @@
                         });
                     }
                 );
+            });
+            
+            // Also handle clicks on the dashicons inside the delete button
+            $(document).on('click', '.aiec-delete-post .dashicons', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                $(this).closest('.aiec-delete-post').trigger('click');
             });
 
             // Create draft from suggestion
@@ -461,7 +489,7 @@
                 dayPosts.forEach(post => {
                     postsHtml += `<li class="aiec-modal-post-item" data-post-id="${post.id}">
                         <span class="aiec-post-status aiec-status-${post.status}">${post.status}</span>
-                        <a href="${post.editUrl}" target="_blank">${this.escapeHtml(post.title)}</a>
+                        <a href="${post.editUrl}" target="_blank" class="aiec-modal-post-link">${this.escapeHtml(post.title)}</a>
                         <button type="button" class="aiec-delete-post" data-post-id="${post.id}" title="Trash post">
                             <span class="dashicons dashicons-trash"></span>
                         </button>
