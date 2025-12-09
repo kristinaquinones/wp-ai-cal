@@ -618,6 +618,7 @@
         },
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         handleListDragStart: function(e) {
             const $row = $(e.currentTarget);
             const postId = parseInt($row.data('post-id'));
@@ -722,6 +723,8 @@
             $targetRow.removeClass('aiec-drag-over');
         },
 
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
         getSuggestionsForList: function() {
