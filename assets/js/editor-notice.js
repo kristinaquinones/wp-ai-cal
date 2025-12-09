@@ -13,66 +13,84 @@
         return;
     }
 
-    // Wait for Gutenberg to fully initialize
-    function initNotice() {
-        // Find the editor header toolbar where preview buttons are
-        const headerToolbar = document.querySelector('.edit-post-header__toolbar');
+    function insertCalendarButton() {
+        // Look for modern Gutenberg header areas
         const headerSettings = document.querySelector('.edit-post-header__settings');
-        
-        if (!headerToolbar && !headerSettings) {
-            // Try again after a short delay if elements not found
-            setTimeout(initNotice, 500);
-            return;
+        const headerToolbar = document.querySelector('.edit-post-header__toolbar');
+
+        if (!headerSettings && !headerToolbar) {
+            return false;
         }
 
-        // Check if calendar button already exists (prevent duplicates)
+        // Prevent duplicates
         if (document.querySelector('.aiec-calendar-toolbar-button')) {
-            return;
+            return true;
         }
 
-        // Create icon-only button for toolbar
         const calendarButton = document.createElement('a');
         calendarButton.href = aiecEditorNotice.calendarUrl;
-        calendarButton.className = 'aiec-calendar-toolbar-button components-button';
+        calendarButton.className = 'aiec-calendar-toolbar-button components-button has-icon';
         calendarButton.setAttribute('aria-label', aiecEditorNotice.strings.returnToCalendar);
         calendarButton.setAttribute('title', aiecEditorNotice.strings.returnToCalendar);
-        
-        calendarButton.innerHTML = `
-            <span class="dashicons dashicons-calendar-alt"></span>
-        `;
+        calendarButton.innerHTML = '<span class="dashicons dashicons-calendar-alt"></span>';
 
-        // Insert into header settings area (where preview buttons are)
-        // Try to insert before the preview button or at the end of settings
+        // Try to insert before the Preview button; otherwise append
         if (headerSettings) {
-            const previewButton = headerSettings.querySelector('[aria-label*="Preview"], [aria-label*="preview"], .edit-post-header-preview__button-external, .edit-post-header-preview__button-toggle');
+            const previewButton = headerSettings.querySelector(
+                '[aria-label*="Preview"], [aria-label*="preview"], .edit-post-header-preview__button-external, .edit-post-header-preview__button-toggle'
+            );
             if (previewButton && previewButton.parentNode) {
-                // Insert before preview button
                 previewButton.parentNode.insertBefore(calendarButton, previewButton);
-            } else {
-                // Insert at the beginning of settings
-                headerSettings.insertBefore(calendarButton, headerSettings.firstChild);
+                return true;
             }
-        } else if (headerToolbar) {
-            // Fallback: insert at the end of toolbar
-            headerToolbar.appendChild(calendarButton);
+            headerSettings.insertBefore(calendarButton, headerSettings.firstChild);
+            return true;
         }
+
+        if (headerToolbar) {
+            headerToolbar.appendChild(calendarButton);
+            return true;
+        }
+
+        return false;
+    }
+
+    // Wait for Gutenberg to fully initialize
+    function initNotice() {
+        if (insertCalendarButton()) {
+            return;
+        }
+
+        // Retry a few times in case the toolbar renders late
+        let attempts = 0;
+        const maxAttempts = 10;
+        const interval = setInterval(() => {
+            attempts += 1;
+            if (insertCalendarButton() || attempts >= maxAttempts) {
+                clearInterval(interval);
+            }
+        }, 500);
+
+        // MutationObserver as a fallback for dynamic render
+        const observer = new MutationObserver(() => {
+            if (insertCalendarButton()) {
+                observer.disconnect();
+            }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
     }
 
     // Initialize when DOM is ready
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function() {
-            // Wait a bit for Gutenberg to fully initialize
-            setTimeout(initNotice, 1000);
-        });
+        document.addEventListener('DOMContentLoaded', initNotice);
     } else {
-        // DOM already loaded
-        setTimeout(initNotice, 1000);
+        initNotice();
     }
 
     // Also try when Gutenberg's editor is ready (if available)
     if (typeof wp !== 'undefined' && typeof wp.data !== 'undefined') {
         wp.domReady(function() {
-            setTimeout(initNotice, 500);
+            initNotice();
         });
     }
 })();
