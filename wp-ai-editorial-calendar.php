@@ -674,7 +674,7 @@ class AI_Editorial_Calendar {
             wp_send_json_error(__('Unauthorized', 'ai-editorial-calendar'));
         }
 
-        $post_id = intval($_POST['post_id'] ?? 0);
+        $post_id = absint($_POST['post_id'] ?? 0);
         $new_date = sanitize_text_field(wp_unslash($_POST['new_date'] ?? ''));
 
         if (!$post_id || !$new_date) {
@@ -751,10 +751,6 @@ class AI_Editorial_Calendar {
 
     public function ajax_trash_post() {
         check_ajax_referer('aiec_nonce', 'nonce');
-
-        if (!current_user_can('delete_posts')) {
-            wp_send_json_error(__('Unauthorized', 'ai-editorial-calendar'));
-        }
 
         $post_id = intval($_POST['post_id'] ?? 0);
 
@@ -864,15 +860,13 @@ class AI_Editorial_Calendar {
 
         $prompt .= "\nFormat: Plain text only. Use markdown-style headings (## for main sections, ### for subsections).\n";
         $prompt .= "Structure: Introduction, 3 main sections with 2-3 bullet points each, Conclusion with CTA.\n\n";
-        $prompt .= "For each section, provide writing guidance that tells the author WHAT to write, not just topics to cover. Use a hybrid approach:\n";
         $prompt .= "- Writing instructions (e.g., 'Write an introduction that hooks the reader by...')\n";
         $prompt .= "- Content guidance (e.g., 'Introduction: Focus on explaining why this topic matters to the reader...')\n";
-        $prompt .= "- Mix both approaches naturally throughout\n\n";
         $prompt .= "Each section should guide the author on:\n";
         $prompt .= "- What to write about (the content focus)\n";
         $prompt .= "- How to approach it (the writing style/angle)\n";
         $prompt .= "- What to accomplish (the goal of that section)\n\n";
-        $prompt .= "Make headings action-oriented and guidance specific/actionable. Do NOT use bullet points or lists.\n";
+        $prompt .= "Make headings action-oriented and guidance specific/actionable.\n";
         $prompt .= "Do NOT repeat the title or description in your output. Start directly with the Introduction section heading (## Introduction). Output only the writing guide, no explanations or metadata.";
 
         return $prompt;

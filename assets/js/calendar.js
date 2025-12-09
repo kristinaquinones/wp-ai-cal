@@ -107,37 +107,59 @@
                 if (date) this.openModal(date);
             });
 
-            // Delete/trash post
+            // Delete/trash post (try, show errors if any)
             $(document).on('click', '.aiec-delete-post', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 
                 const $btn = $(this);
-                const postId = parseInt($btn.data('post-id'));
+                const postId = parseInt($btn.data('post-id'), 10);
                 
                 if (!postId) {
-                    // Silently fail - button may not be properly configured
+                    console.error('AIEC delete: invalid post ID on button', $btn);
+                    alert('Invalid post ID.');
                     return;
                 }
                 
                 const self = Calendar;
-                self.showConfirmModal(
-                    'Are you sure you want to trash this post? It will be moved to the trash and can be restored later.',
-                    function() {
-                        // Store reference to the post item for potential restoration
-                        const $postItem = $btn.closest('.aiec-modal-post-item');
-                        const postItemHtml = $postItem[0] ? $postItem[0].outerHTML : null;
-                        const modalDate = $('#aiec-modal').data('date');
-                        const isInModal = $postItem.length > 0 && modalDate;
+                console.log('AIEC delete: initiating', { postId });
+                
+                // Use native confirm to avoid modal issues
+                const confirmed = window.confirm('Are you sure you want to trash this post? It will be moved to the trash and can be restored later.');
+                if (!confirmed) return;
+                
+                const modalDate = $('#aiec-modal').data('date');
+                const $postItem = $btn.closest('.aiec-modal-post-item');
+                const isInModal = $postItem.length > 0 && modalDate;
+                
+                // Disable button while processing
+                $btn.prop('disabled', true);
+                
+                $.ajax({
+                    url: aiecData.ajaxUrl,
+                    method: 'POST',
+                    dataType: 'json',
+                    data: {
+                        action: 'aiec_trash_post',
+                        nonce: aiecData.nonce,
+                        post_id: postId
+                    }
+                }).done((response) => {
+                    console.log('AIEC delete response', response);
+                    $btn.prop('disabled', false);
+                    
+                    if (response.success) {
+                        // Update local arrays
+                        self.posts = self.posts.filter(p => p.id !== postId);
+                        self.listPosts = self.listPosts.filter(p => p.id !== postId);
                         
-                        // Store post data for restoration if needed
-                        const postData = self.posts.find(p => p.id === postId);
+                        // Remove from calendar UI
+                        const $calendarPost = $(`.aiec-post[data-post-id="${postId}"]`);
+                        $calendarPost.remove();
                         
-                        // IMMEDIATELY remove from UI (no fadeOut delay)
+                        // Remove from modal UI
                         if (isInModal) {
                             $postItem.remove();
-                            
-                            // If no posts left, show "no posts" message
                             const remainingPosts = $('.aiec-modal-post-item').length;
                             if (remainingPosts === 0) {
                                 const isPast = self.isPastDate(modalDate);
@@ -148,87 +170,25 @@
                             }
                         }
                         
-                        // Also remove from calendar view immediately if visible
-                        const $calendarPost = $(`.aiec-post[data-post-id="${postId}"]`);
-                        if ($calendarPost.length) {
-                            $calendarPost.remove();
-                        }
-                        
-                        // Update posts array immediately
-                        self.posts = self.posts.filter(p => p.id !== postId);
-                        
-                        // Also update list posts if in list view
+                        // Refresh data to stay in sync
                         if (self.currentView === 'list') {
-                            self.listPosts = self.listPosts.filter(p => p.id !== postId);
-                            self.renderListPosts();
-                        }
-                        
-                        // Make AJAX call in background
-                        $.post(aiecData.ajaxUrl, {
-                            action: 'aiec_trash_post',
-                            nonce: aiecData.nonce,
-                            post_id: postId
-                        }, (response) => {
-                            $btn.prop('disabled', false);
-                            
-                            if (response.success) {
-                                // Reload posts in background to sync with server
-                                if (self.currentView === 'list') {
-                                    self.loadListPosts();
-                                } else {
-                                    // Refresh calendar posts in background
-                                    self.loadPosts();
-                                }
-                            } else {
-                                // Restore post item on failure
-                                if (isInModal && postItemHtml) {
-                                    $('.aiec-modal-posts').find('.aiec-no-posts').remove();
-                                    if ($('.aiec-post-list').length === 0) {
-                                        $('.aiec-modal-posts').html('<ul class="aiec-post-list"></ul>');
-                                    }
-                                    $('.aiec-post-list').prepend(postItemHtml);
-                                }
-                                
-                                // Restore in posts array
-                                if (postData) {
-                                    self.posts.push(postData);
-                                }
-                                
-                                // Reload to restore calendar view
-                                self.loadPosts(() => {
-                                    if (modalDate) {
-                                        self.openModal(modalDate);
-                                    }
-                                });
-                                
-                                alert(response.data || 'Failed to trash post');
-                            }
-                        }).fail(() => {
-                            // Restore on network error
-                            if (isInModal && postItemHtml) {
-                                $('.aiec-modal-posts').find('.aiec-no-posts').remove();
-                                if ($('.aiec-post-list').length === 0) {
-                                    $('.aiec-modal-posts').html('<ul class="aiec-post-list"></ul>');
-                                }
-                                $('.aiec-post-list').prepend(postItemHtml);
-                            }
-                            
-                            // Restore in posts array
-                            if (postData) {
-                                self.posts.push(postData);
-                            }
-                            
-                            // Reload to restore calendar view
+                            self.loadListPosts();
+                        } else {
                             self.loadPosts(() => {
                                 if (modalDate) {
                                     self.openModal(modalDate);
                                 }
                             });
-                            
-                            alert('Network error. Please try again.');
-                        });
+                        }
+                    } else {
+                        console.error('AIEC delete failed response:', response);
+                        alert((response && response.data) ? response.data : 'Failed to trash post');
                     }
-                );
+                }).fail((xhr, status, error) => {
+                    $btn.prop('disabled', false);
+                    console.error('AIEC delete request error:', status, error, xhr && xhr.responseText);
+                    alert('Network error. Please try again.');
+                });
             });
             
             // Also handle clicks on the dashicons inside the delete button
@@ -599,6 +559,7 @@
         },
 
         showConfirmModal: function(message, onConfirm) {
+            console.log('AIEC confirm modal open');
             $('.aiec-confirm-message').text(message);
             $('#aiec-confirm-modal').fadeIn(200);
             
@@ -607,6 +568,7 @@
             
             // Handle confirm button click
             $('.aiec-confirm-ok').off('click.confirm').on('click.confirm', () => {
+                console.log('AIEC confirm clicked');
                 this.closeConfirmModal();
                 if (this.confirmCallback) {
                     this.confirmCallback();
