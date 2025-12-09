@@ -299,10 +299,6 @@ class AI_Editorial_Calendar {
         }
 
         $calendar_url = $this->get_calendar_url();
-        $notice_id = 'aiec-return-notice-global';
-        
-        // Check if user has dismissed this notice
-        $dismissed = get_user_meta(get_current_user_id(), $notice_id, true);
 
         // Enqueue the editor notice script
         wp_enqueue_script(
@@ -315,11 +311,7 @@ class AI_Editorial_Calendar {
 
         // Localize script with data
         wp_localize_script('aiec-editor-notice', 'aiecEditorNotice', [
-            'ajaxUrl' => admin_url('admin-ajax.php'),
             'calendarUrl' => $calendar_url,
-            'noticeId' => $notice_id,
-            'nonce' => wp_create_nonce('aiec_dismiss_notice'),
-            'dismissed' => $dismissed ? '1' : '0',
             'strings' => [
                 'quickAccess' => __('Quick Access', 'ai-editorial-calendar'),
                 'returnToCalendar' => __('Return to Editorial Calendar', 'ai-editorial-calendar'),
@@ -411,15 +403,9 @@ class AI_Editorial_Calendar {
         }
 
         $calendar_url = $this->get_calendar_url();
-        $notice_id = 'aiec-return-notice-global';
-        
-        // Check if user has dismissed this notice
-        $dismissed = get_user_meta(get_current_user_id(), $notice_id, true);
-        if ($dismissed) {
-            return;
-        }
 
-        echo '<div class="notice notice-info is-dismissible aiec-return-notice" data-notice-id="' . esc_attr($notice_id) . '" style="border-left-color: #0066ff; padding: 12px; margin: 15px 0;">';
+        // Always show the notice - it's a useful quick access link
+        echo '<div class="notice notice-info aiec-return-notice" style="border-left-color: #0066ff; padding: 12px; margin: 15px 0;">';
         echo '<p style="display: flex; align-items: center; gap: 8px; margin: 0.5em 0;">';
         echo '<span class="dashicons dashicons-calendar-alt" style="color: #0066ff; font-size: 20px; width: 20px; height: 20px;"></span>';
         echo '<strong style="flex: 1;">' . esc_html__('Quick Access', 'ai-editorial-calendar') . '</strong>';
@@ -429,21 +415,6 @@ class AI_Editorial_Calendar {
         echo '</a>';
         echo '</p>';
         echo '</div>';
-        
-        // Add JavaScript to handle dismissal
-        echo '<script>
-        jQuery(document).on("click", ".aiec-return-notice .notice-dismiss", function() {
-            const $notice = jQuery(this).closest(".aiec-return-notice");
-            const noticeId = $notice.data("notice-id");
-            if (noticeId) {
-                jQuery.post(ajaxurl, {
-                    action: "aiec_dismiss_notice",
-                    notice_id: noticeId,
-                    nonce: "' . wp_create_nonce('aiec_dismiss_notice') . '"
-                });
-            }
-        });
-        </script>';
     }
     
     public function add_editor_return_notice_edit_form() {

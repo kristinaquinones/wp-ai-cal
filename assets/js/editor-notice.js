@@ -15,11 +15,6 @@
 
     // Wait for Gutenberg to fully initialize
     function initNotice() {
-        // Check if notice should be shown (not dismissed)
-        if (aiecEditorNotice.dismissed === '1') {
-            return;
-        }
-
         // Find a better insertion point - look for the editor layout container
         const editorLayout = document.querySelector('.edit-post-layout');
         const editorHeader = document.querySelector('.edit-post-header');
@@ -35,10 +30,9 @@
             return;
         }
 
-        // Create notice element
+        // Create notice element - always visible, no dismiss button
         const notice = document.createElement('div');
-        notice.className = 'aiec-gutenberg-notice notice notice-info is-dismissible';
-        notice.setAttribute('data-notice-id', aiecEditorNotice.noticeId);
+        notice.className = 'aiec-gutenberg-notice notice notice-info';
         
         notice.innerHTML = `
             <span class="dashicons dashicons-calendar-alt"></span>
@@ -47,10 +41,6 @@
                 <span class="dashicons dashicons-calendar-alt"></span>
                 ${aiecEditorNotice.strings.returnToCalendar}
             </a>
-            <button type="button" class="notice-dismiss">
-                <span class="screen-reader-text">Dismiss this notice.</span>
-                <span class="dashicons dashicons-dismiss"></span>
-            </button>
         `;
 
         // Insert notice above the editor header, not inside it
@@ -64,44 +54,6 @@
         } else {
             // Last resort: insert at the beginning of body
             document.body.insertBefore(notice, document.body.firstChild);
-        }
-
-        // Handle dismissal
-        const dismissButton = notice.querySelector('.notice-dismiss');
-        if (dismissButton) {
-            dismissButton.addEventListener('click', function(e) {
-                e.preventDefault();
-                
-                // Fade out and remove
-                notice.style.transition = 'opacity 0.3s';
-                notice.style.opacity = '0';
-                
-                setTimeout(function() {
-                    notice.remove();
-                }, 300);
-
-                // Send AJAX request to dismiss
-                if (typeof jQuery !== 'undefined') {
-                    jQuery.post(aiecEditorNotice.ajaxUrl, {
-                        action: 'aiec_dismiss_notice',
-                        notice_id: aiecEditorNotice.noticeId,
-                        nonce: aiecEditorNotice.nonce
-                    });
-                } else {
-                    // Fallback to fetch API
-                    fetch(aiecEditorNotice.ajaxUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                        },
-                        body: new URLSearchParams({
-                            action: 'aiec_dismiss_notice',
-                            notice_id: aiecEditorNotice.noticeId,
-                            nonce: aiecEditorNotice.nonce
-                        })
-                    });
-                }
-            });
         }
     }
 
