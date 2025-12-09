@@ -16,6 +16,7 @@
             search: '',
             status: ''
         },
+        listLoading: false,
 
         init: function() {
             this.bindEvents();
@@ -62,11 +63,23 @@
             
             // List view events
             $('.aiec-search-input').on('input', () => this.handleListFilter());
-            $('.aiec-status-filter').on('change', () => this.handleListFilter());
+            $('.aiec-status-filter').on('change', () => {
+                this.saveFilterState();
+                this.handleListFilter();
+            });
             $('.aiec-new-post-list').on('click', () => {
                 window.location.href = aiecData.newPostUrl;
             });
             $('.aiec-get-suggestions-list').on('click', () => this.getSuggestionsForList());
+            $('.aiec-clear-filters').on('click', () => this.clearFilters());
+
+            // Persist date picker selection
+            $('.aiec-date-picker-list').on('change', () => {
+                this.saveFilterState();
+            });
+
+            // Restore persisted filters
+            this.restoreFilterState();
             
             // Tooltips for calendar posts
             $(document).on('mouseenter', '.aiec-post', (e) => this.showTooltip(e.currentTarget));
@@ -412,7 +425,16 @@
         },
 
         createDraft: function(title, desc, dateOverride) {
-            const date = dateOverride || $('#aiec-modal').data('date') || this.formatDate(new Date());
+            const getListSelectedDate = () => {
+                const $dateInput = $('.aiec-date-picker-list');
+                const selected = $dateInput.length ? $dateInput.val() : '';
+                return selected || this.formatDate(new Date());
+            };
+
+            const date = dateOverride
+                || $('#aiec-modal').data('date')
+                || (this.currentView === 'list' ? getListSelectedDate() : null)
+                || this.formatDate(new Date());
             const time = this.getRandomFutureTime();
             const dateTime = `${date} ${time}`;
 
@@ -630,7 +652,10 @@
                 const titleData = btoa(encodeURIComponent(title));
                 const descData = btoa(encodeURIComponent(desc));
 
-                const date = this.currentView === 'list' ? this.formatDate(new Date()) : ($('#aiec-modal').data('date') || this.formatDate(new Date()));
+                const listDate = $('.aiec-date-picker-list').val();
+                const date = this.currentView === 'list'
+                    ? (listDate || this.formatDate(new Date()))
+                    : ($('#aiec-modal').data('date') || this.formatDate(new Date()));
                 return `<div class="aiec-suggestion-item">
                     <strong>${this.escapeHtml(title)}</strong><br>
                     <button type="button" class="aiec-btn aiec-btn-small aiec-create-draft" data-title="${titleData}" data-desc="${descData}" data-date="${date}">Create Draft</button>
@@ -657,7 +682,60 @@
             this.loadListPosts();
         },
 
+        clearFilters: function() {
+            $('.aiec-search-input').val('');
+            $('.aiec-status-filter').val('');
+            this.listFilters.search = '';
+            this.listFilters.status = '';
+            this.listPage = 1;
+            this.saveFilterState();
+            this.loadListPosts();
+        },
+
+        saveFilterState: function() {
+            const status = $('.aiec-status-filter').val() || '';
+            const date = $('.aiec-date-picker-list').val() || '';
+            localStorage.setItem('aiec_list_status', status);
+            localStorage.setItem('aiec_list_date', date);
+        },
+
+        restoreFilterState: function() {
+            const status = localStorage.getItem('aiec_list_status') || '';
+            const date = localStorage.getItem('aiec_list_date') || '';
+            if (status) {
+                $('.aiec-status-filter').val(status);
+                this.listFilters.status = status;
+            }
+            if (date) {
+                $('.aiec-date-picker-list').val(date);
+            }
+        },
+
+        renderListSkeleton: function() {
+            const $tbody = $('.aiec-list-tbody');
+            $tbody.empty();
+            const rows = Array.from({ length: 3 }).map(() => `
+                <tr class="aiec-skeleton-row">
+                    <td class="aiec-col-drag"><div class="aiec-skel aiec-skel-circle"></div></td>
+                    <td class="aiec-col-date"><div class="aiec-skel aiec-skel-line short"></div><div class="aiec-skel aiec-skel-line tiny"></div></td>
+                    <td class="aiec-col-title"><div class="aiec-skel aiec-skel-line"></div></td>
+                    <td class="aiec-col-status"><div class="aiec-skel aiec-skel-pill"></div></td>
+                    <td class="aiec-col-actions"><div class="aiec-skel aiec-skel-pill small"></div><div class="aiec-skel aiec-skel-circle"></div></td>
+                </tr>
+            `).join('');
+            $tbody.html(rows);
+        },
+
+        formatDisplayDate: function(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr + 'T00:00:00');
+            if (Number.isNaN(date.getTime())) return '';
+            return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+        },
+
         loadListPosts: function() {
+            this.listLoading = true;
+            this.renderListSkeleton();
             $.post(aiecData.ajaxUrl, {
                 action: 'aiec_get_all_posts',
                 nonce: aiecData.nonce,
@@ -666,6 +744,7 @@
                 search: this.listFilters.search,
                 status: this.listFilters.status
             }, (response) => {
+                this.listLoading = false;
                 if (response.success) {
                     this.listPosts = response.data.posts;
                     this.listTotal = response.data.total;
@@ -680,8 +759,13 @@
             const $tbody = $('.aiec-list-tbody');
             $tbody.empty();
 
+            if (this.listLoading) {
+                this.renderListSkeleton();
+                return;
+            }
+
             if (this.listPosts.length === 0) {
-                $tbody.html('<tr><td colspan="6" style="text-align: center; padding: 40px; color: #666;">No posts found.</td></tr>');
+                $tbody.html('<tr><td colspan="5" style="text-align: center; padding: 40px; color: #666;">No posts found.</td></tr>');
                 return;
             }
 
@@ -712,9 +796,6 @@
                         </td>
                         <td class="aiec-col-status">
                             <span class="aiec-status-badge ${statusClass}">${statusLabel}</span>
-                        </td>
-                        <td class="aiec-col-category">
-                            ${post.category ? this.escapeHtml(post.category) : '—'}
                         </td>
                         <td class="aiec-col-actions">
                             <a href="${post.editUrl}" target="_blank" class="aiec-btn aiec-btn-small">Edit</a>
@@ -798,8 +879,10 @@
             const $btn = $('.aiec-get-suggestions-list');
             const $suggestions = $('.aiec-list-suggestions');
             const $content = $('.aiec-list-suggestions-content');
+            const $titleDate = $('.aiec-suggestions-date');
 
             $btn.prop('disabled', true).text(aiecData.strings.loading);
+            $titleDate.text('');
 
             $.post(aiecData.ajaxUrl, {
                 action: 'aiec_get_suggestions',
@@ -811,6 +894,8 @@
                 if (response.success) {
                     $content.html(this.formatSuggestions(response.data));
                     $suggestions.slideDown();
+                    const displayDate = this.formatDisplayDate(date);
+                    $titleDate.text(displayDate ? ` — ${displayDate}` : '');
                 } else {
                     alert(response.data || 'Error getting suggestions');
                 }

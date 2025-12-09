@@ -77,6 +77,15 @@ $has_api_key = !empty(AI_Editorial_Calendar::get_instance()->get_api_key());
         </div>
     </div>
 
+    <?php
+        $aiec_date_label = esc_attr__('Pick a date for AI suggestions', 'ai-editorial-calendar');
+        $aiec_date_picker = sprintf(
+            '<input type="date" class="aiec-date-picker-list" value="%s" data-tooltip="%s" aria-label="%s">',
+            esc_attr(current_time('Y-m-d')),
+            $aiec_date_label,
+            $aiec_date_label
+        );
+    ?>
     <div class="aiec-list-card aiec-view-container" data-view="list" style="display: none;">
         <div class="aiec-list-toolbar">
             <div class="aiec-list-filters">
@@ -88,13 +97,23 @@ $has_api_key = !empty(AI_Editorial_Calendar::get_instance()->get_api_key());
                     <option value="pending"><?php esc_html_e('Pending', 'ai-editorial-calendar'); ?></option>
                     <option value="future"><?php esc_html_e('Scheduled', 'ai-editorial-calendar'); ?></option>
                 </select>
+                <button type="button" class="aiec-btn aiec-btn-secondary aiec-clear-filters" aria-label="<?php esc_attr_e('Clear filters', 'ai-editorial-calendar'); ?>">
+                    <?php esc_html_e('Clear', 'ai-editorial-calendar'); ?>
+                </button>
             </div>
             <div class="aiec-list-actions">
-                <input type="date" class="aiec-date-picker-list" value="<?php echo esc_attr(current_time('Y-m-d')); ?>" data-tooltip="<?php esc_attr_e('Pick a date for AI suggestions', 'ai-editorial-calendar'); ?>" aria-label="<?php esc_attr_e('Pick a date for AI suggestions', 'ai-editorial-calendar'); ?>">
                 <button type="button" class="aiec-btn aiec-btn-primary aiec-new-post-list" data-tooltip="<?php esc_attr_e('Create a new post without AI suggestions', 'ai-editorial-calendar'); ?>"><?php esc_html_e('New Post', 'ai-editorial-calendar'); ?></button>
                 <?php if ($has_api_key): ?>
-                    <button type="button" class="aiec-btn aiec-get-suggestions-list" data-tooltip="<?php esc_attr_e('Get AI suggestions for the selected date', 'ai-editorial-calendar'); ?>"><?php esc_html_e('Get AI Suggestions', 'ai-editorial-calendar'); ?></button>
+                    <div class="aiec-suggestions-inline">
+                        <button type="button" class="aiec-btn aiec-get-suggestions-list" data-tooltip="<?php esc_attr_e('Get AI suggestions for the selected date', 'ai-editorial-calendar'); ?>"><?php esc_html_e('Get AI Suggestions', 'ai-editorial-calendar'); ?></button>
+                        <?php echo $aiec_date_picker; ?>
+                    </div>
+                <?php else: ?>
+                    <?php echo $aiec_date_picker; ?>
                 <?php endif; ?>
+            </div>
+            <div class="aiec-list-hint">
+                <?php esc_html_e('Suggestions and drafts use the selected date.', 'ai-editorial-calendar'); ?>
             </div>
         </div>
         <div class="aiec-list-table-wrapper">
@@ -105,7 +124,6 @@ $has_api_key = !empty(AI_Editorial_Calendar::get_instance()->get_api_key());
                         <th class="aiec-col-date"><?php esc_html_e('Date', 'ai-editorial-calendar'); ?></th>
                         <th class="aiec-col-title"><?php esc_html_e('Title', 'ai-editorial-calendar'); ?></th>
                         <th class="aiec-col-status"><?php esc_html_e('Status', 'ai-editorial-calendar'); ?></th>
-                        <th class="aiec-col-category"><?php esc_html_e('Category', 'ai-editorial-calendar'); ?></th>
                         <th class="aiec-col-actions"><?php esc_html_e('Actions', 'ai-editorial-calendar'); ?></th>
                     </tr>
                 </thead>
@@ -116,7 +134,10 @@ $has_api_key = !empty(AI_Editorial_Calendar::get_instance()->get_api_key());
         </div>
         <div class="aiec-list-pagination"></div>
         <div class="aiec-list-suggestions" style="display: none;">
-            <h4><?php esc_html_e('AI Suggestions', 'ai-editorial-calendar'); ?></h4>
+            <h4 class="aiec-suggestions-title">
+                <?php esc_html_e('AI Suggestions', 'ai-editorial-calendar'); ?>
+                <span class="aiec-suggestions-date"></span>
+            </h4>
             <div class="aiec-list-suggestions-content"></div>
         </div>
     </div>
