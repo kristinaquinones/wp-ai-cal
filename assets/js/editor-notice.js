@@ -24,39 +24,48 @@
             '.edit-post-header__settings',
             '.edit-post-header__toolbar',
             '.interface-interface-skeleton__header .edit-post-header__settings',
-            '.interface-interface-skeleton__header .edit-post-header__toolbar'
+            '.interface-interface-skeleton__header .edit-post-header__toolbar',
+            '.interface-interface-skeleton__header-toolbar',
+            '.interface-interface-skeleton__actions',
+            '.interface-pinned-items'
         ];
 
         const host = candidates.map(sel => document.querySelector(sel)).find(Boolean);
-        if (!host) {
-            return false;
-        }
 
         const calendarButton = document.createElement('a');
         calendarButton.href = aiecEditorNotice.calendarUrl;
-        calendarButton.className = 'aiec-calendar-toolbar-button components-button has-icon';
+        calendarButton.className = 'aiec-calendar-toolbar-button components-button has-icon is-tertiary is-compact';
         calendarButton.setAttribute('aria-label', aiecEditorNotice.strings.returnToCalendar);
         calendarButton.setAttribute('title', aiecEditorNotice.strings.returnToCalendar);
         calendarButton.innerHTML = '<span class="dashicons dashicons-calendar-alt"></span>';
 
-        // Try to place before Preview or Schedule buttons
-        const previewButton = host.querySelector(
-            '[aria-label*="Preview"], [aria-label*="preview"], .edit-post-header-preview__button-external, .edit-post-header-preview__button-toggle'
+        // Try to place relative to Preview or Schedule buttons anywhere in the header
+        const previewButton = document.querySelector(
+            '[aria-label*="Preview" i], .edit-post-header-preview__button-external, .edit-post-header-preview__button-toggle'
         );
-        const scheduleButton = host.querySelector('[aria-label*="Schedule"], [aria-label*="Publish"], .editor-post-publish-button__button');
+        const scheduleButton = document.querySelector(
+            '[aria-label*="Schedule" i], [aria-label*="Publish" i], .editor-post-publish-button__button'
+        );
 
-        if (previewButton && previewButton.parentNode) {
-            previewButton.parentNode.insertBefore(calendarButton, previewButton);
+        const tryInsertBefore = (target) => {
+            if (target && target.parentNode) {
+                target.parentNode.insertBefore(calendarButton, target);
+                return true;
+            }
+            return false;
+        };
+
+        if (tryInsertBefore(previewButton) || tryInsertBefore(scheduleButton)) {
             return true;
         }
-        if (scheduleButton && scheduleButton.parentNode) {
-            scheduleButton.parentNode.insertBefore(calendarButton, scheduleButton);
+
+        // If we found a host container, append there
+        if (host) {
+            host.appendChild(calendarButton);
             return true;
         }
 
-        // Fallback: append to host
-        host.appendChild(calendarButton);
-        return true;
+        return false;
     }
 
     // Wait for Gutenberg to fully initialize

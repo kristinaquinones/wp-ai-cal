@@ -313,7 +313,7 @@ class AI_Editorial_Calendar {
         wp_localize_script('aiec-editor-notice', 'aiecEditorNotice', [
             'calendarUrl' => $calendar_url,
             'strings' => [
-                'returnToCalendar' => __('Editorial Calendar', 'ai-editorial-calendar'),
+                'returnToCalendar' => __('Open Editorial Calendar', 'ai-editorial-calendar'),
             ]
         ]);
     }
