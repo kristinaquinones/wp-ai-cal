@@ -1120,6 +1120,87 @@
     line-height: 1.5;
 }
 
+/* Gutenberg Editor Notice */
+.aiec-gutenberg-notice {
+    position: relative;
+    background: #fff;
+    border-left: 4px solid #0066ff;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+    margin: 0 0 15px 0;
+    padding: 12px 40px 12px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.aiec-gutenberg-notice .dashicons-calendar-alt {
+    color: #0066ff;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.aiec-gutenberg-notice strong {
+    flex: 1;
+    min-width: 120px;
+}
+
+.aiec-gutenberg-notice .button {
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+.aiec-gutenberg-notice .notice-dismiss {
+    position: absolute;
+    top: 0;
+    right: 1px;
+    border: none;
+    margin: 0;
+    padding: 9px;
+    background: none;
+    cursor: pointer;
+    color: #787c82;
+    transition: color 0.2s ease;
+}
+
+.aiec-gutenberg-notice .notice-dismiss:hover {
+    color: #1d2327;
+}
+
+.aiec-gutenberg-notice .notice-dismiss .dashicons {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+}
+
+/* Ensure notice appears above editor content in Gutenberg */
+.edit-post-header .aiec-gutenberg-notice {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Responsive adjustments for Gutenberg notice */
+@media (max-width: 782px) {
+    .aiec-gutenberg-notice {
+        flex-direction: column;
+        align-items: flex-start;
+        padding-right: 12px;
+    }
+    
+    .aiec-gutenberg-notice .button {
+        margin-left: 0;
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .aiec-gutenberg-notice .notice-dismiss {
+        top: 8px;
+        right: 8px;
+    }
+}
+
 /* Dashboard Widget */
 .aiec-dashboard-widget {
     padding: 0;

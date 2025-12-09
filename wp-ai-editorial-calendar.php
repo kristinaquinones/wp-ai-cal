@@ -49,6 +49,7 @@ class AI_Editorial_Calendar {
         add_action('add_meta_boxes', [$this, 'add_ai_suggestion_meta_box']);
         add_action('admin_notices', [$this, 'add_editor_return_notice']);
         add_action('edit_form_top', [$this, 'add_editor_return_notice_edit_form']);
+        add_action('enqueue_block_editor_assets', [$this, 'enqueue_block_editor_assets']);
         add_action('wp_dashboard_setup', [$this, 'add_dashboard_widget']);
     }
 
@@ -286,6 +287,46 @@ class AI_Editorial_Calendar {
         }
     }
 
+    public function enqueue_block_editor_assets() {
+        // Only enqueue on post editor pages
+        global $pagenow;
+        if (!in_array($pagenow, ['post.php', 'post-new.php'], true)) {
+            return;
+        }
+
+        if (!current_user_can('edit_posts')) {
+            return;
+        }
+
+        $calendar_url = $this->get_calendar_url();
+        $notice_id = 'aiec-return-notice-global';
+        
+        // Check if user has dismissed this notice
+        $dismissed = get_user_meta(get_current_user_id(), $notice_id, true);
+
+        // Enqueue the editor notice script
+        wp_enqueue_script(
+            'aiec-editor-notice',
+            AIEC_PLUGIN_URL . 'assets/js/editor-notice.js',
+            [],
+            AIEC_VERSION,
+            true
+        );
+
+        // Localize script with data
+        wp_localize_script('aiec-editor-notice', 'aiecEditorNotice', [
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'calendarUrl' => $calendar_url,
+            'noticeId' => $notice_id,
+            'nonce' => wp_create_nonce('aiec_dismiss_notice'),
+            'dismissed' => $dismissed ? '1' : '0',
+            'strings' => [
+                'quickAccess' => __('Quick Access', 'ai-editorial-calendar'),
+                'returnToCalendar' => __('Return to Editorial Calendar', 'ai-editorial-calendar'),
+            ]
+        ]);
+    }
+
     public function render_calendar_page() {
         include AIEC_PLUGIN_DIR . 'templates/calendar.php';
     }
@@ -337,6 +378,36 @@ class AI_Editorial_Calendar {
         // Only show on post editor pages (check both screen and pagenow for reliability)
         if (!in_array($pagenow, ['post.php', 'post-new.php'], true)) {
             return;
+        }
+
+        // Check if Gutenberg is active - if so, JavaScript will handle the notice
+        // This prevents duplicate notices
+        if (function_exists('use_block_editor_for_post_type') && use_block_editor_for_post_type('post')) {
+            // Check if Classic Editor plugin is active and forcing classic editor
+            $classic_editor_active = class_exists('Classic_Editor');
+            $force_classic = false;
+            
+            if ($classic_editor_active) {
+                // Check if user or post has classic editor forced
+                global $post;
+                if ($post) {
+                    $editor_choice = get_post_meta($post->ID, 'classic-editor-remember', true);
+                    if ($editor_choice === 'classic-editor') {
+                        $force_classic = true;
+                    }
+                }
+                
+                // Check user preference
+                $user_editor_choice = get_user_option('classic-editor-settings');
+                if (isset($user_editor_choice['editor']) && $user_editor_choice['editor'] === 'classic') {
+                    $force_classic = true;
+                }
+            }
+            
+            // Only show PHP notice if Classic Editor is forced
+            if (!$force_classic) {
+                return;
+            }
         }
 
         $calendar_url = $this->get_calendar_url();
