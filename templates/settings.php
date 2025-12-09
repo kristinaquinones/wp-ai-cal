@@ -87,6 +87,109 @@ if (!defined('ABSPATH')) {
                     <p class="description"><?php esc_html_e('Topics, phrases, or approaches the AI should not suggest. (Max 500 characters)', 'ai-editorial-calendar'); ?></p>
                 </td>
             </tr>
+            <tr>
+                <th colspan="2">
+                    <details class="aiec-advanced-options">
+                        <summary><?php esc_html_e('Advanced Options (Country, Culture, Content Focus)', 'ai-editorial-calendar'); ?></summary>
+                        <p class="description" style="margin: 8px 0 12px 0;"><?php esc_html_e('Note: Selecting many advanced options can increase prompt length and token usage.', 'ai-editorial-calendar'); ?></p>
+                        <table class="form-table aiec-form-table aiec-advanced-table">
+                            <tr>
+                                <th scope="row">
+                                    <label><?php esc_html_e('Country (optional)', 'ai-editorial-calendar'); ?></label>
+                                </th>
+                                <td>
+                                    <?php
+                                    $countries = [
+                                        'United States','Canada','Mexico','United Kingdom','Ireland','Australia','New Zealand','Germany','France','Spain','Italy','Portugal','Netherlands','Belgium','Sweden','Norway','Denmark','Finland','Switzerland','Austria','Poland','Czech Republic','Hungary','Greece','Turkey','Israel','United Arab Emirates','Saudi Arabia','South Africa','Nigeria','Kenya','Egypt','India','Pakistan','Bangladesh','Sri Lanka','Singapore','Malaysia','Indonesia','Philippines','Vietnam','Thailand','Japan','South Korea','China','Hong Kong','Taiwan','Brazil','Argentina','Chile','Colombia','Peru'
+                                    ];
+                                    $saved_countries = array_filter(array_map('trim', explode(',', get_option('aiec_country', ''))));
+                                    ?>
+                                    <input type="search" class="aiec-filter-input" data-target="#aiec-country-list" placeholder="<?php esc_attr_e('Search countries...', 'ai-editorial-calendar'); ?>" style="margin-bottom:6px; width: 260px;">
+                                    <div id="aiec-country-list" class="aiec-filter-list" data-max="5">
+                                        <?php foreach ($countries as $country): ?>
+                                            <label class="aiec-filter-item">
+                                                <input type="checkbox" name="aiec_country[]" value="<?php echo esc_attr($country); ?>" <?php checked(in_array($country, $saved_countries, true)); ?> />
+                                                <?php echo esc_html($country); ?>
+                                            </label>
+                                        <?php endforeach; ?>
+                                    </div>
+                                    <p class="description"><?php esc_html_e('Select one or more countries for localized suggestions. (Optional)', 'ai-editorial-calendar'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">
+                                    <label><?php esc_html_e('Cultural Lens (optional)', 'ai-editorial-calendar'); ?></label>
+                                </th>
+                                <td>
+                                    <?php
+                                    $cultures = [
+                                        'English - US','English - UK','English - Australia/NZ','English - Canada','English - India',
+                                        'Spanish - LATAM','Spanish - Spain','French - France','French - Canada','German','Italian','Portuguese - Brazil','Portuguese - Europe',
+                                        'Chinese - Mainland','Chinese - HK/Taiwan','Japanese','Korean','Hindi','Arabic - Gulf','Arabic - Levant','Arabic - North Africa',
+                                        'Russian','Polish','Dutch','Swedish','Norwegian','Danish','Finnish',
+                                        'Hebrew','Turkish','Greek',
+                                        'APAC (general)','LATAM (general)','Middle East (general)','Africa - Anglophone','Africa - Francophone',
+                                        'Nordic','Benelux','Iberian','Mediterranean','Slavic','Central Europe','Eastern Europe','Caribbean','Oceania','ASEAN','South Asia','North America - General','Europe - General'
+                                    ];
+                                    $saved_cultures = array_filter(array_map('trim', explode(',', get_option('aiec_culture', ''))));
+                                    ?>
+                                    <input type="search" class="aiec-filter-input" data-target="#aiec-culture-list" placeholder="<?php esc_attr_e('Search cultural lenses...', 'ai-editorial-calendar'); ?>" style="margin-bottom:6px; width: 260px;">
+                                    <div id="aiec-culture-list" class="aiec-filter-list" data-max="5">
+                                        <?php foreach ($cultures as $culture): ?>
+                                            <label class="aiec-filter-item">
+                                                <input type="checkbox" name="aiec_culture[]" value="<?php echo esc_attr($culture); ?>" <?php checked(in_array($culture, $saved_cultures, true)); ?> />
+                                                <?php echo esc_html($culture); ?>
+                                            </label>
+                                        <?php endforeach; ?>
+                                    </div>
+                                    <p class="description"><?php esc_html_e('Select cultural/linguistic lenses to tailor tone, references, and holidays. (Optional)', 'ai-editorial-calendar'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">
+                                    <label><?php esc_html_e('Belief/Religious Context (optional)', 'ai-editorial-calendar'); ?></label>
+                                </th>
+                                <td>
+                                    <?php
+                                    $beliefs = [
+                                        'Christian - Catholic','Christian - Protestant','Christian - Orthodox','Christian - Evangelical',
+                                        'Judaism - Orthodox','Judaism - Conservative','Judaism - Reform',
+                                        'Islam - Sunni','Islam - Shia','Islam - Sufi',
+                                        'Hinduism','Buddhism - Theravada','Buddhism - Mahayana','Sikhism','Jainism',
+                                        'Indigenous/Folk traditions','Spiritual but not religious','Secular/Nonreligious',
+                                        'Chinese traditional','Shinto','Zoroastrianism','Baháʼí'
+                                    ];
+                                    $saved_beliefs = array_filter(array_map('trim', explode(',', get_option('aiec_belief', ''))));
+                                    ?>
+                                    <input type="search" class="aiec-filter-input" data-target="#aiec-belief-list" placeholder="<?php esc_attr_e('Search beliefs...', 'ai-editorial-calendar'); ?>" style="margin-bottom:6px; width: 260px;">
+                                    <div id="aiec-belief-list" class="aiec-filter-list" data-max="5">
+                                        <?php foreach ($beliefs as $belief): ?>
+                                            <label class="aiec-filter-item">
+                                                <input type="checkbox" name="aiec_belief[]" value="<?php echo esc_attr($belief); ?>" <?php checked(in_array($belief, $saved_beliefs, true)); ?> />
+                                                <?php echo esc_html($belief); ?>
+                                            </label>
+                                        <?php endforeach; ?>
+                                    </div>
+                                    <p class="description"><?php esc_html_e('Optional: add religious or belief context for more relevant references and observances.', 'ai-editorial-calendar'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">
+                                    <label for="aiec_focus_type"><?php esc_html_e('Content Focus', 'ai-editorial-calendar'); ?></label>
+                                </th>
+                                <td>
+                                    <select name="aiec_focus_type" id="aiec_focus_type">
+                                        <option value="mix" <?php selected(get_option('aiec_focus_type', 'mix'), 'mix'); ?>><?php esc_html_e('Balanced (mix of trends and evergreen)', 'ai-editorial-calendar'); ?></option>
+                                        <option value="trends" <?php selected(get_option('aiec_focus_type', 'mix'), 'trends'); ?>><?php esc_html_e('Trends (timely/seasonal)', 'ai-editorial-calendar'); ?></option>
+                                        <option value="evergreen" <?php selected(get_option('aiec_focus_type', 'mix'), 'evergreen'); ?>><?php esc_html_e('Evergreen (always relevant)', 'ai-editorial-calendar'); ?></option>
+                                    </select>
+                                    <p class="description"><?php esc_html_e('Choose whether suggestions should lean toward timely/trending topics, evergreen topics, or a balanced mix.', 'ai-editorial-calendar'); ?></p>
+                                </td>
+                            </tr>
+                        </table>
+                    </details>
+                </th>
+            </tr>
             </table>
 
             <?php submit_button(null, 'primary', 'submit', false, ['class' => 'aiec-btn aiec-btn-primary']); ?>
@@ -116,3 +219,65 @@ if (!defined('ABSPATH')) {
         </p>
     </div>
 </div>
+
+<style>
+.aiec-filter-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+    max-width: 700px;
+    padding: 8px 0;
+}
+.aiec-filter-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.aiec-filter-input {
+    max-width: 280px;
+}
+.aiec-advanced-options {
+    display: block;
+}
+.aiec-advanced-options > summary {
+    cursor: pointer;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+.aiec-advanced-table {
+    margin-top: 8px;
+}
+</style>
+
+<script>
+(function() {
+    const filterInputs = document.querySelectorAll('.aiec-filter-input');
+    filterInputs.forEach((input) => {
+        input.addEventListener('input', () => {
+            const targetSelector = input.getAttribute('data-target');
+            const list = document.querySelector(targetSelector);
+            if (!list) return;
+            const query = input.value.toLowerCase();
+            list.querySelectorAll('.aiec-filter-item').forEach((item) => {
+                const text = item.textContent.toLowerCase();
+                item.style.display = text.includes(query) ? '' : 'none';
+            });
+        });
+    });
+
+    // Enforce max selections per list (default 5)
+    document.querySelectorAll('.aiec-filter-list').forEach((list) => {
+        const max = parseInt(list.getAttribute('data-max') || '5', 10);
+        list.addEventListener('change', (event) => {
+            const checked = list.querySelectorAll('input[type="checkbox"]:checked');
+            if (checked.length > max) {
+                const target = event.target;
+                if (target && target.type === 'checkbox') {
+                    target.checked = false;
+                }
+                alert(`Please select at most ${max} options in this list.`);
+            }
+        });
+    });
+})();
+</script>

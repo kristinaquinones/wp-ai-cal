@@ -90,6 +90,21 @@ class AI_Editorial_Calendar {
         register_setting('aiec_settings', 'aiec_avoid', [
             'sanitize_callback' => [$this, 'sanitize_context_field']
         ]);
+        register_setting('aiec_settings', 'aiec_country', [
+            'sanitize_callback' => [$this, 'sanitize_locale_list']
+        ]);
+        register_setting('aiec_settings', 'aiec_region', [
+            'sanitize_callback' => [$this, 'sanitize_locale_list']
+        ]);
+        register_setting('aiec_settings', 'aiec_culture', [
+            'sanitize_callback' => [$this, 'sanitize_locale_list']
+        ]);
+        register_setting('aiec_settings', 'aiec_belief', [
+            'sanitize_callback' => [$this, 'sanitize_locale_list']
+        ]);
+        register_setting('aiec_settings', 'aiec_focus_type', [
+            'sanitize_callback' => [$this, 'sanitize_short_field']
+        ]);
     }
 
     public function sanitize_context_field($value) {
@@ -102,6 +117,21 @@ class AI_Editorial_Calendar {
         $value = sanitize_text_field($value);
         // Cap at 100 characters
         return mb_substr($value, 0, 100);
+    }
+
+    public function sanitize_locale_list($value) {
+        if (is_array($value)) {
+            $value = array_map('sanitize_text_field', $value);
+            $value = array_filter($value, function($item) {
+                return !empty($item);
+            });
+            $value = array_slice($value, 0, 5); // cap to 5 selections
+            $value = implode(', ', $value);
+        } else {
+            $value = $this->sanitize_short_field($value);
+        }
+        // Cap at 150 chars to avoid overly long strings
+        return mb_substr($value, 0, 150);
     }
 
     public function sanitize_provider($value) {
@@ -277,7 +307,7 @@ class AI_Editorial_Calendar {
                         'success' => __('Outline generated successfully!', 'ai-editorial-calendar'),
                         'error' => __('Error generating outline. Please try again.', 'ai-editorial-calendar'),
                         'confirmRegenerate' => sprintf(
-                            /* translators: %s: AI provider name (OpenAI, Anthropic, Google) */
+                            /* translators: %s: AI provider name (OpenAI, Anthropic, Google, xAI Grok) */
                             __('Are you sure? You\'re using %s credits for each request. 👀', 'ai-editorial-calendar'),
                             $provider_name
                         ),
@@ -457,7 +487,7 @@ class AI_Editorial_Calendar {
 
         add_meta_box(
             'aiec-ai-suggestion',
-            __('AI Suggestion', 'ai-editorial-calendar'),
+            __('AI-Suggested Outline', 'ai-editorial-calendar'),
             [$this, 'render_ai_suggestion_meta_box'],
             'post',
             'side',
@@ -479,8 +509,14 @@ class AI_Editorial_Calendar {
         
         echo '<div style="margin-top: 12px;">';
         echo '<button type="button" id="aiec-generate-outline" class="button button-primary" data-post-id="' . esc_attr($post->ID) . '">';
+        echo '<span class="dashicons dashicons-calendar-alt" style="margin-right:6px; width:16px; height:16px; line-height:16px;"></span>';
         echo esc_html__('Generate an Outline', 'ai-editorial-calendar');
         echo '</button>';
+        // Calendar link button
+        $calendar_url = $this->get_calendar_url();
+        echo '<a href="' . esc_url($calendar_url) . '" class="button" style="margin-left:6px;" title="' . esc_attr__('Open Editorial Calendar', 'ai-editorial-calendar') . '">';
+        echo '<span class="dashicons dashicons-calendar"></span>';
+        echo '</a>';
         echo '<span class="spinner" id="aiec-outline-spinner" style="float: none; margin-left: 8px; visibility: hidden;"></span>';
         echo '</div>';
         echo '<div id="aiec-outline-message" style="margin-top: 8px; display: none;"></div>';
@@ -827,7 +863,7 @@ class AI_Editorial_Calendar {
         }
 
         $prompt .= "\nFormat: Plain text only. Use markdown-style headings (## for main sections, ### for subsections).\n";
-        $prompt .= "Structure: Introduction, 3 main sections, Conclusion with CTA.\n\n";
+        $prompt .= "Structure: Introduction, 3 main sections with 2-3 bullet points each, Conclusion with CTA.\n\n";
         $prompt .= "For each section, provide writing guidance that tells the author WHAT to write, not just topics to cover. Use a hybrid approach:\n";
         $prompt .= "- Writing instructions (e.g., 'Write an introduction that hooks the reader by...')\n";
         $prompt .= "- Content guidance (e.g., 'Introduction: Focus on explaining why this topic matters to the reader...')\n";
@@ -930,10 +966,18 @@ class AI_Editorial_Calendar {
         // Sanitize date
         $date = sanitize_text_field($date);
         
+        // Locale/context options
+        $country = sanitize_text_field(get_option('aiec_country', ''));
+        $region = sanitize_text_field(get_option('aiec_region', ''));
+        $culture = sanitize_text_field(get_option('aiec_culture', ''));
+        $belief = sanitize_text_field(get_option('aiec_belief', ''));
+        $focus_type = sanitize_text_field(get_option('aiec_focus_type', 'mix')); // trends | evergreen | mix
+        
         // Parse and format date for better context
         $date_obj = DateTime::createFromFormat('Y-m-d', $date);
         $formatted_date = $date;
         $date_context = '';
+        $season = '';
         if ($date_obj) {
             $today = new DateTime();
             $diff = $today->diff($date_obj);
@@ -952,6 +996,18 @@ class AI_Editorial_Calendar {
             }
             
             $formatted_date = $date_obj->format('l, F j, Y');
+            
+            // Derive a simple season from month (Northern Hemisphere approximation)
+            $month = (int) $date_obj->format('n');
+            if (in_array($month, [12, 1, 2], true)) {
+                $season = 'Winter';
+            } elseif (in_array($month, [3, 4, 5], true)) {
+                $season = 'Spring';
+            } elseif (in_array($month, [6, 7, 8], true)) {
+                $season = 'Summer';
+            } else {
+                $season = 'Autumn';
+            }
         }
         
         // Sanitize recent titles and provide context
@@ -982,6 +1038,18 @@ class AI_Editorial_Calendar {
         if ($context) {
             $prompt .= sprintf(' Site context: %s.', $context);
         }
+        
+        if ($country || $region || $culture) {
+            $locale_parts = array_slice(array_filter([$country, $region, $culture]), 0, 5);
+            $prompt .= ' Locale: ' . implode(', ', $locale_parts) . '.';
+        }
+        if ($belief) {
+            $belief_list = array_slice(array_filter(array_map('trim', explode(',', $belief))), 0, 5);
+            if (!empty($belief_list)) {
+                $prompt .= ' Belief/Cultural context: ' . implode(', ', $belief_list) . '.';
+            }
+        }
+
         if ($tone) {
             $prompt .= sprintf(' Writing tone: %s.', $tone);
         }
@@ -992,7 +1060,21 @@ class AI_Editorial_Calendar {
             $prompt .= sprintf(' Avoid these topics/approaches: %s.', $avoid);
         }
 
-        $prompt .= ' Format: Title: X | Desc: Y (one line each, no duplicates, no markup, no formatting). Ensure suggestions are timely, relevant, and distinct from recent content.';
+        if ($season) {
+            $prompt .= sprintf(' Season: %s. Consider events/holidays within 4 weeks of the target date.', $season);
+        }
+
+        // Trends vs Evergreen focus
+        if ($focus_type === 'trends') {
+            $prompt .= ' Emphasize timely/trending topics tied to the target date and season.';
+        } elseif ($focus_type === 'evergreen') {
+            $prompt .= ' Emphasize evergreen topics that remain relevant year-round.';
+        } else {
+            $prompt .= ' Provide a balanced mix of timely/trending and evergreen angles.';
+        }
+
+        // Diversity and timeliness instructions (concise, no repeats)
+        $prompt .= ' Return 3 suggestions: how-to; list/roundup; opinion/analysis. Avoid duplicates of recent titles; one-line Descs with a concrete hook and timely angle if relevant. Format: Title: X | Desc: Y (one line, no markup).';
 
         return $prompt;
     }

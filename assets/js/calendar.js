@@ -830,9 +830,10 @@
                 return;
             }
 
-            // Use today's date for suggestions
-            const today = new Date();
-            const date = this.formatDate(today);
+            // Use selected date; fallback to today
+            const dateInput = $('.aiec-date-picker-list');
+            const selectedDate = dateInput.length ? dateInput.val() : '';
+            const date = selectedDate || this.formatDate(new Date());
             const $btn = $('.aiec-get-suggestions-list');
             const $suggestions = $('.aiec-list-suggestions');
             const $content = $('.aiec-list-suggestions-content');
