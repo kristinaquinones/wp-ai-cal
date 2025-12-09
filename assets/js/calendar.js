@@ -108,11 +108,16 @@
                         if (this.currentView === 'list') {
                             this.loadListPosts();
                         } else {
-                            this.loadPosts();
-                            // If modal is open, refresh it
+                            // Check if modal is open before reloading
                             const modalDate = $('#aiec-modal').data('date');
                             if (modalDate) {
-                                this.openModal(modalDate);
+                                // Reload posts, then refresh modal with updated data
+                                this.loadPosts(() => {
+                                    this.openModal(modalDate);
+                                });
+                            } else {
+                                // Just reload posts if modal is not open
+                                this.loadPosts();
                             }
                         }
                     } else {
@@ -375,7 +380,7 @@
             });
         },
 
-        loadPosts: function() {
+        loadPosts: function(callback) {
             const year = this.currentDate.getFullYear();
             const month = this.currentDate.getMonth();
 
@@ -391,6 +396,10 @@
                 if (response.success) {
                     this.posts = response.data;
                     this.renderPosts();
+                    // Execute callback if provided
+                    if (typeof callback === 'function') {
+                        callback();
+                    }
                 }
             });
         },
