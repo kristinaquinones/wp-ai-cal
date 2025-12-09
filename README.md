@@ -9,7 +9,7 @@ A lightweight WordPress plugin that provides an editorial calendar with personal
 
 ## Features
 
-- **Visual Calendar** - Monthly grid view of all posts and pages with color-coded status indicators
+- **Visual Calendar** - Monthly grid view of all posts with color-coded status indicators
 - **List View** - Table view with search, filtering, and pagination for all posts
 - **Drag and Drop Scheduling** - Reschedule drafts and scheduled posts by dragging them to a new date (works in both calendar and list views)
 - **AI Content Suggestions** - Get 3 personalized post ideas for any future date
@@ -75,7 +75,7 @@ List topics, phrases, or approaches the AI should not suggest. Example:
 Navigate to **Editorial Calendar** in the WordPress admin menu. You can switch between two views:
 
 **Calendar View:**
-- Monthly grid view of all posts and pages
+- Monthly grid view of all posts
 - Color-coded status:
   - **Green** - Published
   - **Yellow** - Draft
@@ -84,7 +84,7 @@ Navigate to **Editorial Calendar** in the WordPress admin menu. You can switch b
 
 **List View:**
 - Table format showing all posts with pagination
-- Search and filter by status or post type
+- Search and filter by status
 - Sortable columns for date, title, status, and category
 - Drag and drop to reorder posts and update dates
 
@@ -122,13 +122,15 @@ When you create a draft from an AI suggestion, a special meta box appears in the
 - **View AI Suggestion** - See the original AI-generated description that inspired the post
 - **Generate an Outline** - Click to automatically create a detailed blog post outline with:
   - Introduction section
-  - 3-5 main body sections with subheadings
-  - Bullet points for key points
+  - 3 main body sections with bullet points
   - Conclusion with call-to-action
 
-The outline is formatted in HTML and inserted directly into your post content, ready for you to expand into a full article.
+The outline is generated in plain text format (markdown-style headings) and inserted directly into your post content, ready for you to expand into a full article. The outline is automatically cleaned to remove any extraneous formatting or AI response text.
 
-**Note:** The AI Suggestion meta box only appears for drafts that were created from the AI Editorial Calendar.
+**Important Notes:**
+- The AI Suggestion meta box only appears for drafts that were created from the AI Editorial Calendar
+- If you regenerate an outline for a post that already has content, you'll be prompted to confirm since this uses your API credits
+- Only posts are displayed in the calendar and list views (pages are excluded)
 
 ## Supported AI Models
 

@@ -16,6 +16,13 @@
             const postId = $(this).data('post-id');
             const $btn = $(this);
 
+            // Check if post already has content and show confirmation
+            if (aiecMetaBox.hasContent) {
+                if (!confirm(aiecMetaBox.strings.confirmRegenerate)) {
+                    return;
+                }
+            }
+
             // Disable button and show spinner
             $btn.prop('disabled', true);
             $spinner.css('visibility', 'visible');

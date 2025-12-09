@@ -663,6 +663,7 @@
         handleListDragOver: function(e) {
             if (!this.draggedPost) return;
             e.preventDefault();
+            e.stopPropagation();
             e.originalEvent.dataTransfer.dropEffect = 'move';
             
             const $row = $(e.currentTarget);
@@ -676,6 +677,8 @@
 
         handleListDrop: function(e) {
             e.preventDefault();
+            e.stopPropagation();
+            
             const $targetRow = $(e.currentTarget);
             const targetPostId = parseInt($targetRow.data('post-id'));
             
@@ -687,8 +690,41 @@
             const targetPost = this.listPosts.find(p => p.id === targetPostId);
             if (!targetPost) return;
             
+            // Get full datetime from target post, preserve time from dragged post
             const targetDate = targetPost.date.split(' ')[0];
-            this.updatePostDate(this.draggedPost.id, targetDate);
+            const draggedDateTime = this.draggedPost.date.split(' ');
+            const time = draggedDateTime[1] || '09:00:00';
+            const newDateTime = `${targetDate} ${time}`;
+            
+            // Update the dragged post's date in listPosts array
+            const draggedPostIndex = this.listPosts.findIndex(p => p.id === this.draggedPost.id);
+            if (draggedPostIndex !== -1) {
+                const oldDate = this.draggedPost.date.split(' ')[0];
+                this.listPosts[draggedPostIndex].date = newDateTime;
+                
+                // Optimistically update UI
+                this.renderListPosts();
+                
+                // Send to server
+                $.post(aiecData.ajaxUrl, {
+                    action: 'aiec_update_post_date',
+                    nonce: aiecData.nonce,
+                    post_id: this.draggedPost.id,
+                    new_date: newDateTime
+                }, (response) => {
+                    if (!response.success) {
+                        // Revert on failure
+                        this.listPosts[draggedPostIndex].date = `${oldDate} ${time}`;
+                        this.renderListPosts();
+                        alert(response.data || 'Failed to update post date');
+                    }
+                }).fail(() => {
+                    // Revert on network error
+                    this.listPosts[draggedPostIndex].date = `${oldDate} ${time}`;
+                    this.renderListPosts();
+                    alert('Network error. Please try again.');
+                });
+            }
             
             $targetRow.removeClass('aiec-drag-over');
         },
