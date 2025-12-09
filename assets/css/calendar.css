@@ -1193,6 +1193,89 @@
     white-space: nowrap;
 }
 
+/* Gutenberg Calendar Toolbar Button - Icon-only in header */
+.aiec-calendar-toolbar-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    margin: 0 4px;
+    border-radius: 2px;
+    background: transparent;
+    color: #1d2327;
+    text-decoration: none;
+    transition: all 0.15s ease;
+    border: none;
+    cursor: pointer;
+    position: relative;
+}
+
+.aiec-calendar-toolbar-button:hover {
+    background: #f0f0f1;
+    color: var(--color-accent);
+    text-decoration: none;
+}
+
+.aiec-calendar-toolbar-button:focus {
+    outline: 1px solid var(--color-accent);
+    outline-offset: -1px;
+    box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.aiec-calendar-toolbar-button:active {
+    background: #dcdcde;
+}
+
+.aiec-calendar-toolbar-button .dashicons {
+    color: #1d2327;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    line-height: 1;
+    display: block;
+}
+
+.aiec-calendar-toolbar-button:hover .dashicons {
+    color: var(--color-accent);
+}
+
+/* Tooltip for calendar button */
+.aiec-calendar-toolbar-button[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    background: #1d2327;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 1000;
+}
+
+.aiec-calendar-toolbar-button[title]:hover::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 2px;
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 4px solid #1d2327;
+    pointer-events: none;
+    z-index: 1000;
+}
+
 /* Classic Editor Notice - Match prominent button design */
 .aiec-classic-notice {
     padding: 20px 32px;

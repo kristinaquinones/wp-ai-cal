@@ -15,43 +15,46 @@
 
     // Wait for Gutenberg to fully initialize
     function initNotice() {
-        // Find a better insertion point - look for the editor layout container
-        const editorLayout = document.querySelector('.edit-post-layout');
-        const editorHeader = document.querySelector('.edit-post-header');
+        // Find the editor header toolbar where preview buttons are
+        const headerToolbar = document.querySelector('.edit-post-header__toolbar');
+        const headerSettings = document.querySelector('.edit-post-header__settings');
         
-        if (!editorLayout && !editorHeader) {
+        if (!headerToolbar && !headerSettings) {
             // Try again after a short delay if elements not found
             setTimeout(initNotice, 500);
             return;
         }
 
-        // Check if notice already exists (prevent duplicates)
-        if (document.querySelector('.aiec-gutenberg-notice')) {
+        // Check if calendar button already exists (prevent duplicates)
+        if (document.querySelector('.aiec-calendar-toolbar-button')) {
             return;
         }
 
-        // Create notice element - prominent button with clear spacing
-        const notice = document.createElement('div');
-        notice.className = 'aiec-gutenberg-notice';
+        // Create icon-only button for toolbar
+        const calendarButton = document.createElement('a');
+        calendarButton.href = aiecEditorNotice.calendarUrl;
+        calendarButton.className = 'aiec-calendar-toolbar-button components-button';
+        calendarButton.setAttribute('aria-label', aiecEditorNotice.strings.returnToCalendar);
+        calendarButton.setAttribute('title', aiecEditorNotice.strings.returnToCalendar);
         
-        notice.innerHTML = `
-            <a href="${aiecEditorNotice.calendarUrl}" class="aiec-editor-button button button-primary">
-                <span class="dashicons dashicons-calendar-alt"></span>
-                <span class="aiec-editor-button-text">${aiecEditorNotice.strings.returnToCalendar}</span>
-            </a>
+        calendarButton.innerHTML = `
+            <span class="dashicons dashicons-calendar-alt"></span>
         `;
 
-        // Insert notice above the editor header, not inside it
-        // This prevents overlap with Gutenberg's native elements
-        if (editorHeader && editorHeader.parentNode) {
-            // Insert before the header element itself
-            editorHeader.parentNode.insertBefore(notice, editorHeader);
-        } else if (editorLayout) {
-            // Fallback: insert at the beginning of the layout
-            editorLayout.insertBefore(notice, editorLayout.firstChild);
-        } else {
-            // Last resort: insert at the beginning of body
-            document.body.insertBefore(notice, document.body.firstChild);
+        // Insert into header settings area (where preview buttons are)
+        // Try to insert before the preview button or at the end of settings
+        if (headerSettings) {
+            const previewButton = headerSettings.querySelector('[aria-label*="Preview"], [aria-label*="preview"], .edit-post-header-preview__button-external, .edit-post-header-preview__button-toggle');
+            if (previewButton && previewButton.parentNode) {
+                // Insert before preview button
+                previewButton.parentNode.insertBefore(calendarButton, previewButton);
+            } else {
+                // Insert at the beginning of settings
+                headerSettings.insertBefore(calendarButton, headerSettings.firstChild);
+            }
+        } else if (headerToolbar) {
+            // Fallback: insert at the end of toolbar
+            headerToolbar.appendChild(calendarButton);
         }
     }
 
