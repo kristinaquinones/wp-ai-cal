@@ -1089,3 +1089,57 @@
         text-align: center;
     }
 }
+
+/* Dashboard Widget */
+.aiec-dashboard-widget {
+    padding: 0;
+}
+
+.aiec-dashboard-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.aiec-dashboard-btn {
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.aiec-dashboard-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.aiec-dashboard-widget .description {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-border);
+    color: var(--color-text-light);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+/* Dashboard Widget */
+.aiec-dashboard-widget {
+    padding: 0;
+}
+
+.aiec-dashboard-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.aiec-dashboard-btn {
+    transition: all 0.2s ease;
+}
+
+.aiec-dashboard-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.aiec-dashboard-widget .dashicons {
+    display: inline-block;
+}

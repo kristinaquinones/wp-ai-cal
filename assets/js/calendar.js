@@ -124,8 +124,46 @@
                 self.showConfirmModal(
                     'Are you sure you want to trash this post? It will be moved to the trash and can be restored later.',
                     function() {
-                        $btn.prop('disabled', true);
+                        // Store reference to the post item for potential restoration
+                        const $postItem = $btn.closest('.aiec-modal-post-item');
+                        const postItemHtml = $postItem[0] ? $postItem[0].outerHTML : null;
+                        const modalDate = $('#aiec-modal').data('date');
+                        const isInModal = $postItem.length > 0 && modalDate;
                         
+                        // Store post data for restoration if needed
+                        const postData = self.posts.find(p => p.id === postId);
+                        
+                        // IMMEDIATELY remove from UI (no fadeOut delay)
+                        if (isInModal) {
+                            $postItem.remove();
+                            
+                            // If no posts left, show "no posts" message
+                            const remainingPosts = $('.aiec-modal-post-item').length;
+                            if (remainingPosts === 0) {
+                                const isPast = self.isPastDate(modalDate);
+                                const noPostsMsg = isPast
+                                    ? '<p class="aiec-no-posts">No posts on this day.</p>'
+                                    : '<p class="aiec-no-posts">No posts scheduled for this day.</p>';
+                                $('.aiec-modal-posts').html(noPostsMsg);
+                            }
+                        }
+                        
+                        // Also remove from calendar view immediately if visible
+                        const $calendarPost = $(`.aiec-post[data-post-id="${postId}"]`);
+                        if ($calendarPost.length) {
+                            $calendarPost.remove();
+                        }
+                        
+                        // Update posts array immediately
+                        self.posts = self.posts.filter(p => p.id !== postId);
+                        
+                        // Also update list posts if in list view
+                        if (self.currentView === 'list') {
+                            self.listPosts = self.listPosts.filter(p => p.id !== postId);
+                            self.renderListPosts();
+                        }
+                        
+                        // Make AJAX call in background
                         $.post(aiecData.ajaxUrl, {
                             action: 'aiec_trash_post',
                             nonce: aiecData.nonce,
@@ -134,27 +172,59 @@
                             $btn.prop('disabled', false);
                             
                             if (response.success) {
-                                // Reload posts immediately based on current view
+                                // Reload posts in background to sync with server
                                 if (self.currentView === 'list') {
                                     self.loadListPosts();
                                 } else {
-                                    // Check if modal is open before reloading
-                                    const modalDate = $('#aiec-modal').data('date');
-                                    if (modalDate) {
-                                        // Reload posts, then refresh modal with updated data
-                                        self.loadPosts(() => {
-                                            self.openModal(modalDate);
-                                        });
-                                    } else {
-                                        // Just reload posts if modal is not open
-                                        self.loadPosts();
-                                    }
+                                    // Refresh calendar posts in background
+                                    self.loadPosts();
                                 }
                             } else {
+                                // Restore post item on failure
+                                if (isInModal && postItemHtml) {
+                                    $('.aiec-modal-posts').find('.aiec-no-posts').remove();
+                                    if ($('.aiec-post-list').length === 0) {
+                                        $('.aiec-modal-posts').html('<ul class="aiec-post-list"></ul>');
+                                    }
+                                    $('.aiec-post-list').prepend(postItemHtml);
+                                }
+                                
+                                // Restore in posts array
+                                if (postData) {
+                                    self.posts.push(postData);
+                                }
+                                
+                                // Reload to restore calendar view
+                                self.loadPosts(() => {
+                                    if (modalDate) {
+                                        self.openModal(modalDate);
+                                    }
+                                });
+                                
                                 alert(response.data || 'Failed to trash post');
                             }
                         }).fail(() => {
-                            $btn.prop('disabled', false);
+                            // Restore on network error
+                            if (isInModal && postItemHtml) {
+                                $('.aiec-modal-posts').find('.aiec-no-posts').remove();
+                                if ($('.aiec-post-list').length === 0) {
+                                    $('.aiec-modal-posts').html('<ul class="aiec-post-list"></ul>');
+                                }
+                                $('.aiec-post-list').prepend(postItemHtml);
+                            }
+                            
+                            // Restore in posts array
+                            if (postData) {
+                                self.posts.push(postData);
+                            }
+                            
+                            // Reload to restore calendar view
+                            self.loadPosts(() => {
+                                if (modalDate) {
+                                    self.openModal(modalDate);
+                                }
+                            });
+                            
                             alert('Network error. Please try again.');
                         });
                     }

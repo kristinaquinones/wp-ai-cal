@@ -41,11 +41,15 @@ class AI_Editorial_Calendar {
         add_action('wp_ajax_aiec_generate_outline', [$this, 'ajax_generate_outline']);
         add_action('wp_ajax_aiec_trash_post', [$this, 'ajax_trash_post']);
         add_action('wp_ajax_aiec_check_model_health', [$this, 'ajax_check_model_health']);
+        add_action('wp_ajax_aiec_dismiss_notice', [$this, 'ajax_dismiss_notice']);
         add_filter('plugin_action_links_' . plugin_basename(__FILE__), [$this, 'add_plugin_action_links']);
         add_action('admin_bar_menu', [$this, 'add_admin_bar_link'], 100);
         add_action('post_submitbox_misc_actions', [$this, 'add_editor_return_link']);
         add_filter('get_sample_permalink_html', [$this, 'add_view_post_return_link'], 10, 5);
         add_action('add_meta_boxes', [$this, 'add_ai_suggestion_meta_box']);
+        add_action('admin_notices', [$this, 'add_editor_return_notice']);
+        add_action('edit_form_top', [$this, 'add_editor_return_notice_edit_form']);
+        add_action('wp_dashboard_setup', [$this, 'add_dashboard_widget']);
     }
 
     public function add_admin_menu() {
@@ -315,11 +319,81 @@ class AI_Editorial_Calendar {
         }
 
         $calendar_url = $this->get_calendar_url();
-        echo '<div class="misc-pub-section" style="padding-top: 10px; border-top: 1px solid #ddd; margin-top: 10px;">';
-        echo '<a href="' . esc_url($calendar_url) . '" class="button button-secondary" style="width: 100%; text-align: center; margin-top: 5px;">';
+        echo '<div class="misc-pub-section aiec-return-link-section" style="padding-top: 12px; border-top: 1px solid #ddd; margin-top: 12px;">';
+        echo '<a href="' . esc_url($calendar_url) . '" class="button button-primary aiec-return-button" style="width: 100%; text-align: center; margin-top: 5px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-weight: 500;">';
+        echo '<span class="dashicons dashicons-calendar-alt" style="font-size: 16px; width: 16px; height: 16px; line-height: 1;"></span>';
         echo esc_html__('Return to Editorial Calendar', 'ai-editorial-calendar');
         echo '</a>';
         echo '</div>';
+    }
+
+    public function add_editor_return_notice() {
+        global $pagenow;
+        
+        if (!current_user_can('edit_posts')) {
+            return;
+        }
+
+        // Only show on post editor pages (check both screen and pagenow for reliability)
+        if (!in_array($pagenow, ['post.php', 'post-new.php'], true)) {
+            return;
+        }
+
+        $calendar_url = $this->get_calendar_url();
+        $notice_id = 'aiec-return-notice-global';
+        
+        // Check if user has dismissed this notice
+        $dismissed = get_user_meta(get_current_user_id(), $notice_id, true);
+        if ($dismissed) {
+            return;
+        }
+
+        echo '<div class="notice notice-info is-dismissible aiec-return-notice" data-notice-id="' . esc_attr($notice_id) . '" style="border-left-color: #0066ff; padding: 12px; margin: 15px 0;">';
+        echo '<p style="display: flex; align-items: center; gap: 8px; margin: 0.5em 0;">';
+        echo '<span class="dashicons dashicons-calendar-alt" style="color: #0066ff; font-size: 20px; width: 20px; height: 20px;"></span>';
+        echo '<strong style="flex: 1;">' . esc_html__('Quick Access', 'ai-editorial-calendar') . '</strong>';
+        echo '<a href="' . esc_url($calendar_url) . '" class="button button-primary" style="margin-left: 12px;">';
+        echo '<span class="dashicons dashicons-calendar-alt" style="font-size: 16px; width: 16px; height: 16px; line-height: 1.5;"></span> ';
+        echo esc_html__('Return to Editorial Calendar', 'ai-editorial-calendar');
+        echo '</a>';
+        echo '</p>';
+        echo '</div>';
+        
+        // Add JavaScript to handle dismissal
+        echo '<script>
+        jQuery(document).on("click", ".aiec-return-notice .notice-dismiss", function() {
+            const $notice = jQuery(this).closest(".aiec-return-notice");
+            const noticeId = $notice.data("notice-id");
+            if (noticeId) {
+                jQuery.post(ajaxurl, {
+                    action: "aiec_dismiss_notice",
+                    notice_id: noticeId,
+                    nonce: "' . wp_create_nonce('aiec_dismiss_notice') . '"
+                });
+            }
+        });
+        </script>';
+    }
+    
+    public function add_editor_return_notice_edit_form() {
+        // Alternative hook for post editor - fires at top of edit form
+        $this->add_editor_return_notice();
+    }
+    
+    public function ajax_dismiss_notice() {
+        check_ajax_referer('aiec_dismiss_notice', 'nonce');
+        
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error(__('Unauthorized', 'ai-editorial-calendar'));
+        }
+        
+        $notice_id = sanitize_text_field(wp_unslash($_POST['notice_id'] ?? ''));
+        if (empty($notice_id)) {
+            wp_send_json_error(__('Invalid notice ID', 'ai-editorial-calendar'));
+        }
+        
+        update_user_meta(get_current_user_id(), $notice_id, '1');
+        wp_send_json_success();
     }
 
     public function add_view_post_return_link($return, $post_id, $new_title, $new_slug, $post) {
@@ -338,6 +412,8 @@ class AI_Editorial_Calendar {
         global $post;
         
         // Only show meta box if this post was created from the AI Editorial Calendar
+        // This includes posts created from both calendar view and list view, as both
+        // use the same ajax_create_draft() method which sets the _aiec_from_calendar meta
         if (!$post || !get_post_meta($post->ID, '_aiec_from_calendar', true)) {
             return;
         }
@@ -373,6 +449,62 @@ class AI_Editorial_Calendar {
         echo '<div id="aiec-outline-message" style="margin-top: 8px; display: none;"></div>';
         
         wp_nonce_field('aiec_generate_outline', 'aiec_outline_nonce');
+    }
+
+    public function add_dashboard_widget() {
+        if (!current_user_can('edit_posts')) {
+            return;
+        }
+
+        wp_add_dashboard_widget(
+            'aiec_dashboard_widget',
+            __('AI Editorial Calendar', 'ai-editorial-calendar'),
+            [$this, 'render_dashboard_widget']
+        );
+    }
+
+    public function render_dashboard_widget() {
+        $calendar_url = $this->get_calendar_url();
+        $new_post_url = admin_url('post-new.php');
+        $has_api_key = !empty($this->get_api_key());
+        
+        echo '<div class="aiec-dashboard-widget">';
+        echo '<div class="aiec-dashboard-actions">';
+        
+        // New Post button
+        echo '<a href="' . esc_url($new_post_url) . '" class="button button-primary aiec-dashboard-btn" style="width: 100%; margin-bottom: 10px; text-align: center; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">';
+        echo '<span class="dashicons dashicons-edit" style="font-size: 16px; width: 16px; height: 16px; line-height: 1;"></span>';
+        echo esc_html__('New Post', 'ai-editorial-calendar');
+        echo '</a>';
+        
+        // Get AI Suggestions button (only if API key is configured)
+        if ($has_api_key) {
+            echo '<a href="' . esc_url($calendar_url) . '" class="button button-secondary aiec-dashboard-btn" style="width: 100%; margin-bottom: 10px; text-align: center; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">';
+            echo '<span class="dashicons dashicons-lightbulb" style="font-size: 16px; width: 16px; height: 16px; line-height: 1;"></span>';
+            echo esc_html__('Get AI Suggestions', 'ai-editorial-calendar');
+            echo '</a>';
+        }
+        
+        // View Calendar button
+        echo '<a href="' . esc_url($calendar_url) . '" class="button button-secondary aiec-dashboard-btn" style="width: 100%; text-align: center; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">';
+        echo '<span class="dashicons dashicons-calendar-alt" style="font-size: 16px; width: 16px; height: 16px; line-height: 1;"></span>';
+        echo esc_html__('View Calendar', 'ai-editorial-calendar');
+        echo '</a>';
+        
+        echo '</div>';
+        
+        if (!$has_api_key) {
+            echo '<p style="margin-top: 15px; padding: 10px; background: #fff3cd; border-left: 4px solid #ffc107; color: #856404;">';
+            echo '<strong>' . esc_html__('Tip:', 'ai-editorial-calendar') . '</strong> ';
+            printf(
+                esc_html__('Configure your AI API key in %sSettings%s to enable content suggestions.', 'ai-editorial-calendar'),
+                '<a href="' . esc_url(admin_url('admin.php?page=aiec-settings')) . '">',
+                '</a>'
+            );
+            echo '</p>';
+        }
+        
+        echo '</div>';
     }
 
     public function handle_uninstall() {
@@ -645,7 +777,7 @@ class AI_Editorial_Calendar {
     }
 
     private function build_outline_prompt($title, $suggestion, $context, $tone) {
-        $prompt = "Create a blog post outline:\n\n";
+        $prompt = "Create a writing guide for this blog post:\n\n";
         $prompt .= "Title: " . sanitize_text_field($title) . "\n";
         $prompt .= "Description: " . sanitize_textarea_field($suggestion) . "\n";
 
@@ -657,10 +789,18 @@ class AI_Editorial_Calendar {
             $prompt .= "Tone: " . sanitize_text_field($tone) . "\n";
         }
 
-        $prompt .= "\nFormat: Plain text only. Use markdown-style headings (## for main sections, ### for subsections) and - for bullet points.\n";
-        $prompt .= "Structure: Intro, 3 main sections (each with 3 bullet points), Conclusion with CTA.\n";
-        $prompt .= "Make headings action-oriented and bullets specific/actionable.";
-        $prompt .= "Do NOT repeat the title or description in your output. Start directly with the Introduction section heading (## Introduction). Output only the outline structure, no explanations or metadata.";
+        $prompt .= "\nFormat: Plain text only. Use markdown-style headings (## for main sections, ### for subsections).\n";
+        $prompt .= "Structure: Introduction, 3 main sections, Conclusion with CTA.\n\n";
+        $prompt .= "For each section, provide writing guidance that tells the author WHAT to write, not just topics to cover. Use a hybrid approach:\n";
+        $prompt .= "- Writing instructions (e.g., 'Write an introduction that hooks the reader by...')\n";
+        $prompt .= "- Content guidance (e.g., 'Introduction: Focus on explaining why this topic matters to the reader...')\n";
+        $prompt .= "- Mix both approaches naturally throughout\n\n";
+        $prompt .= "Each section should guide the author on:\n";
+        $prompt .= "- What to write about (the content focus)\n";
+        $prompt .= "- How to approach it (the writing style/angle)\n";
+        $prompt .= "- What to accomplish (the goal of that section)\n\n";
+        $prompt .= "Make headings action-oriented and guidance specific/actionable. Do NOT use bullet points or lists.\n";
+        $prompt .= "Do NOT repeat the title or description in your output. Start directly with the Introduction section heading (## Introduction). Output only the writing guide, no explanations or metadata.";
 
         return $prompt;
     }
@@ -682,7 +822,7 @@ class AI_Editorial_Calendar {
         $outline = preg_replace('/[ \t]+/', ' ', $outline); // Multiple spaces to single space
         
         // Remove common AI response prefixes/suffixes
-        $outline = preg_replace('/^(Here\'s|Here is|Below is|I\'ll create|I\'ve created|This outline|The outline)[\s\S]*?:\s*/i', '', $outline);
+        $outline = preg_replace('/^(Here\'s|Here is|Below is|I\'ll create|I\'ve created|This outline|The outline|This writing guide|The writing guide)[\s\S]*?:\s*/i', '', $outline);
         $outline = preg_replace('/\n*(Note:|Remember:|Tip:)[\s\S]*$/i', '', $outline);
         
         // Trim whitespace
@@ -694,12 +834,12 @@ class AI_Editorial_Calendar {
         foreach ($lines as $i => $line) {
             $line = trim($line);
             // Skip empty lines and common AI prefixes at start
-            if (empty($line) || preg_match('/^(Title|Description|Context|Tone|Format|Structure):/i', $line)) {
+            if (empty($line) || preg_match('/^(Title|Description|Context|Tone|Format|Structure|Writing guide|Guide):/i', $line)) {
                 $start_index = $i + 1;
                 continue;
             }
-            // Found actual content
-            if (preg_match('/^#|^[A-Z]|^[a-z]|^-/', $line)) {
+            // Found actual content (headings or text)
+            if (preg_match('/^#|^[A-Z]|^[a-z]|^Write|^Focus|^Explain|^Describe/', $line)) {
                 $start_index = $i;
                 break;
             }
@@ -753,33 +893,69 @@ class AI_Editorial_Calendar {
         // Sanitize date
         $date = sanitize_text_field($date);
         
-        // Sanitize recent titles
+        // Parse and format date for better context
+        $date_obj = DateTime::createFromFormat('Y-m-d', $date);
+        $formatted_date = $date;
+        $date_context = '';
+        if ($date_obj) {
+            $today = new DateTime();
+            $diff = $today->diff($date_obj);
+            $days_diff = (int) $diff->format('%r%a');
+            
+            if ($days_diff === 0) {
+                $date_context = 'today';
+            } elseif ($days_diff === 1) {
+                $date_context = 'tomorrow';
+            } elseif ($days_diff > 1 && $days_diff <= 7) {
+                $date_context = sprintf('in %d days', $days_diff);
+            } elseif ($days_diff < 0 && $days_diff >= -7) {
+                $date_context = sprintf('%d days ago', abs($days_diff));
+            } else {
+                $date_context = 'on ' . $date_obj->format('F j, Y');
+            }
+            
+            $formatted_date = $date_obj->format('l, F j, Y');
+        }
+        
+        // Sanitize recent titles and provide context
         $sanitized_titles = array_map(function($title) {
             return sanitize_text_field($title);
         }, array_slice(array_values($recent_titles), 0, 5));
         
-        $titles_list = implode(', ', $sanitized_titles);
+        $titles_list = '';
+        $recent_context = '';
+        if (!empty($sanitized_titles)) {
+            $titles_list = implode(', ', $sanitized_titles);
+            $count = count($sanitized_titles);
+            $recent_context = sprintf(
+                ' The site has recently published these %d post%s: %s. Use these to understand the content themes and avoid duplication, but suggest fresh angles or complementary topics.',
+                $count,
+                $count > 1 ? 's' : '',
+                $titles_list
+            );
+        }
 
         // Build prompt with sanitized inputs (context, tone, avoid are already sanitized via settings)
         $prompt = sprintf(
-            'Suggest 3 blog posts for %s.',
-            $date
+            'Suggest 3 unique blog post ideas for %s (%s).',
+            $formatted_date,
+            $date_context
         );
 
         if ($context) {
-            $prompt .= sprintf(' Site: %s.', $context);
+            $prompt .= sprintf(' Site context: %s.', $context);
         }
         if ($tone) {
-            $prompt .= sprintf(' Tone: %s.', $tone);
+            $prompt .= sprintf(' Writing tone: %s.', $tone);
         }
-        if ($titles_list) {
-            $prompt .= sprintf(' Recent: %s.', $titles_list);
+        if ($recent_context) {
+            $prompt .= $recent_context;
         }
         if ($avoid) {
-            $prompt .= sprintf(' Avoid: %s.', $avoid);
+            $prompt .= sprintf(' Avoid these topics/approaches: %s.', $avoid);
         }
 
-        $prompt .= ' Format: Title: X | Desc: Y (one line each, no duplicates)';
+        $prompt .= ' Format: Title: X | Desc: Y (one line each, no duplicates, no markup, no formatting). Ensure suggestions are timely, relevant, and distinct from recent content.';
 
         return $prompt;
     }
