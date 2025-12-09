@@ -35,6 +35,7 @@ if (!defined('ABSPATH')) {
                         <option value="openai" <?php selected(get_option('aiec_ai_provider'), 'openai'); ?>>OpenAI (GPT)</option>
                         <option value="anthropic" <?php selected(get_option('aiec_ai_provider'), 'anthropic'); ?>>Anthropic (Claude)</option>
                         <option value="google" <?php selected(get_option('aiec_ai_provider'), 'google'); ?>>Google (Gemini)</option>
+                        <option value="grok" <?php selected(get_option('aiec_ai_provider'), 'grok'); ?>>xAI Grok</option>
                     </select>
                     <p class="description"><?php esc_html_e('Select your AI provider. You\'ll need an API key from your chosen provider.', 'ai-editorial-calendar'); ?></p>
                 </td>
@@ -51,7 +52,8 @@ if (!defined('ABSPATH')) {
                         <br>
                         <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI</a> |
                         <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">Anthropic</a> |
-                        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI</a>
+                        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI</a> |
+                        <a href="https://console.x.ai/api-keys" target="_blank" rel="noopener noreferrer">xAI Grok</a>
                     </p>
                 </td>
             </tr>

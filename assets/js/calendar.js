@@ -116,7 +116,7 @@
                 const postId = parseInt($btn.data('post-id'));
                 
                 if (!postId) {
-                    console.error('No post ID found for delete button');
+                    // Silently fail - button may not be properly configured
                     return;
                 }
                 

@@ -16,7 +16,7 @@ A lightweight WordPress plugin that provides an editorial calendar with personal
 - **One-Click Draft Creation** - Create drafts directly from AI suggestions
 - **AI Suggestion Meta Box** - View AI suggestions in the post editor for drafts created from the calendar
 - **Generate Outline** - Automatically generate a detailed blog post outline from AI suggestions
-- **Multi-Provider Support** - Works with OpenAI, Anthropic, or Google AI
+- **Multi-Provider Support** - Works with OpenAI, Anthropic, Google AI, or xAI Grok
 - **Minimal Configuration** - Just 3 settings to get started
 
 ## Requirements
@@ -40,11 +40,13 @@ Select from:
 - **OpenAI** - Uses GPT-4o-mini
 - **Anthropic** - Uses Claude 3.5 Haiku
 - **Google** - Uses Gemini 2.5 Flash Lite
+- **xAI Grok** - Uses Grok-2
 
 ### 2. Enter Your API Key
 
 Get an API key from your chosen provider:
 - OpenAI: https://platform.openai.com/api-keys
+- xAI Grok: https://console.x.ai/api-keys
 - Anthropic: https://console.anthropic.com/settings/keys
 - Google AI: https://aistudio.google.com/apikey
 
@@ -132,6 +134,7 @@ The outline is generated in plain text format (markdown-style headings) and inse
 | OpenAI | gpt-4o-mini | ~$0.001 per suggestion |
 | Anthropic | claude-3-5-haiku-latest | ~$0.001 per suggestion |
 | Google | gemini-2.5-flash-lite | Free tier available |
+| xAI Grok | grok-2 | Competitive pricing |
 
 ## Security
 
