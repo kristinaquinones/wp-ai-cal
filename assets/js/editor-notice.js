@@ -30,16 +30,14 @@
             return;
         }
 
-        // Create notice element - always visible, no dismiss button
+        // Create notice element - compact, streamlined design
         const notice = document.createElement('div');
-        notice.className = 'aiec-gutenberg-notice notice notice-info';
+        notice.className = 'aiec-gutenberg-notice';
         
         notice.innerHTML = `
-            <span class="dashicons dashicons-calendar-alt"></span>
-            <strong>${aiecEditorNotice.strings.quickAccess}</strong>
-            <a href="${aiecEditorNotice.calendarUrl}" class="button button-primary">
+            <a href="${aiecEditorNotice.calendarUrl}" class="aiec-editor-link">
                 <span class="dashicons dashicons-calendar-alt"></span>
-                ${aiecEditorNotice.strings.returnToCalendar}
+                <span class="aiec-editor-link-text">${aiecEditorNotice.strings.returnToCalendar}</span>
             </a>
         `;
 

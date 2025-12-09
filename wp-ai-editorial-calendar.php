@@ -313,8 +313,7 @@ class AI_Editorial_Calendar {
         wp_localize_script('aiec-editor-notice', 'aiecEditorNotice', [
             'calendarUrl' => $calendar_url,
             'strings' => [
-                'quickAccess' => __('Quick Access', 'ai-editorial-calendar'),
-                'returnToCalendar' => __('Return to Editorial Calendar', 'ai-editorial-calendar'),
+                'returnToCalendar' => __('Editorial Calendar', 'ai-editorial-calendar'),
             ]
         ]);
     }
@@ -404,16 +403,12 @@ class AI_Editorial_Calendar {
 
         $calendar_url = $this->get_calendar_url();
 
-        // Always show the notice - it's a useful quick access link
-        echo '<div class="notice notice-info aiec-return-notice" style="border-left-color: #0066ff; padding: 12px; margin: 15px 0;">';
-        echo '<p style="display: flex; align-items: center; gap: 8px; margin: 0.5em 0;">';
-        echo '<span class="dashicons dashicons-calendar-alt" style="color: #0066ff; font-size: 20px; width: 20px; height: 20px;"></span>';
-        echo '<strong style="flex: 1;">' . esc_html__('Quick Access', 'ai-editorial-calendar') . '</strong>';
-        echo '<a href="' . esc_url($calendar_url) . '" class="button button-primary" style="margin-left: 12px;">';
-        echo '<span class="dashicons dashicons-calendar-alt" style="font-size: 16px; width: 16px; height: 16px; line-height: 1.5;"></span> ';
-        echo esc_html__('Return to Editorial Calendar', 'ai-editorial-calendar');
+        // Always show the notice - streamlined, compact design
+        echo '<div class="aiec-classic-notice">';
+        echo '<a href="' . esc_url($calendar_url) . '" class="aiec-editor-link">';
+        echo '<span class="dashicons dashicons-calendar-alt"></span>';
+        echo '<span class="aiec-editor-link-text">' . esc_html__('Editorial Calendar', 'ai-editorial-calendar') . '</span>';
         echo '</a>';
-        echo '</p>';
         echo '</div>';
     }
     
