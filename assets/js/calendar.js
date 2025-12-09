@@ -54,18 +54,75 @@
             // Hide tooltip on scroll
             $(window).on('scroll', () => this.hideTooltip());
 
+            // Click handler for post titles - open edit URL
+            $(document).on('click', '.aiec-post', (e) => {
+                e.stopPropagation(); // Prevent day click handler from firing
+                const $post = $(e.currentTarget);
+                const editUrl = $post.data('edit-url');
+                if (editUrl) {
+                    window.open(editUrl, '_blank');
+                }
+            });
+
             $(document).on('click', '.aiec-day', (e) => {
+                // Don't open modal if clicking on a post (post click handler will handle it)
+                if ($(e.target).hasClass('aiec-post') || $(e.target).closest('.aiec-post').length) {
+                    return;
+                }
                 // Don't open modal if we just finished dragging
                 if (this.justDropped) {
                     this.justDropped = false;
                     return;
                 }
-                // Don't open modal for past dates unless clicking on a post
+                // Don't open modal for past dates
                 const date = $(e.currentTarget).data('date');
-                if (this.isPastDate(date) && !$(e.target).hasClass('aiec-post')) {
+                if (this.isPastDate(date)) {
                     return;
                 }
                 if (date) this.openModal(date);
+            });
+
+            // Delete/trash post
+            $(document).on('click', '.aiec-delete-post', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const $btn = $(e.currentTarget);
+                const postId = parseInt($btn.data('post-id'));
+                
+                if (!postId) return;
+                
+                if (!confirm('Are you sure you want to trash this post? It will be moved to the trash and can be restored later.')) {
+                    return;
+                }
+                
+                $btn.prop('disabled', true);
+                
+                $.post(aiecData.ajaxUrl, {
+                    action: 'aiec_trash_post',
+                    nonce: aiecData.nonce,
+                    post_id: postId
+                }, (response) => {
+                    if (response.success) {
+                        // Reload posts based on current view
+                        if (this.currentView === 'list') {
+                            this.loadListPosts();
+                        } else {
+                            this.loadPosts();
+                            // If modal is open, refresh it
+                            const modalDate = $('#aiec-modal').data('date');
+                            if (modalDate) {
+                                this.openModal(modalDate);
+                            }
+                        }
+                    } else {
+                        alert(response.data || 'Failed to trash post');
+                        $btn.prop('disabled', false);
+                    }
+                }).fail(() => {
+                    alert('Network error. Please try again.');
+                    $btn.prop('disabled', false);
+                });
             });
 
             // Create draft from suggestion
@@ -298,6 +355,11 @@
                 date: dateTime
             }, (response) => {
                 if (response.success) {
+                    // Open edit URL immediately if available
+                    if (response.data.editUrl) {
+                        window.open(response.data.editUrl, '_blank');
+                    }
+                    
                     // Reload posts based on current view
                     if (this.currentView === 'list') {
                         this.loadListPosts();
@@ -347,6 +409,7 @@
 
                     const $post = $(`<div class="aiec-post ${statusClass} ${draggableClass}"
                         data-post-id="${post.id}"
+                        data-edit-url="${post.editUrl || ''}"
                         data-full-title="${this.escapeHtml(post.title)}">
                         ${this.escapeHtml(post.title)}
                     </div>`);
@@ -383,9 +446,12 @@
             if (dayPosts.length) {
                 postsHtml = '<ul class="aiec-post-list">';
                 dayPosts.forEach(post => {
-                    postsHtml += `<li>
+                    postsHtml += `<li class="aiec-modal-post-item" data-post-id="${post.id}">
                         <span class="aiec-post-status aiec-status-${post.status}">${post.status}</span>
                         <a href="${post.editUrl}" target="_blank">${this.escapeHtml(post.title)}</a>
+                        <button type="button" class="aiec-delete-post" data-post-id="${post.id}" title="Trash post">
+                            <span class="dashicons dashicons-trash"></span>
+                        </button>
                     </li>`;
                 });
                 postsHtml += '</ul>';
@@ -553,6 +619,9 @@
                         </td>
                         <td class="aiec-col-actions">
                             <a href="${post.editUrl}" target="_blank" class="aiec-btn aiec-btn-small">Edit</a>
+                            <button type="button" class="aiec-delete-post aiec-btn-icon" data-post-id="${post.id}" title="Trash post">
+                                <span class="dashicons dashicons-trash"></span>
+                            </button>
                         </td>
                     </tr>
                 `;

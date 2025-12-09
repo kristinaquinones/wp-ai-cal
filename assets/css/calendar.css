@@ -211,11 +211,13 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
     transition: all 0.15s ease;
+    cursor: pointer;
 }
 
 .aiec-post:hover {
     transform: translateY(-1px);
     box-shadow: var(--shadow-sm);
+    opacity: 0.9;
 }
 
 .aiec-post.aiec-status-publish {
@@ -246,6 +248,7 @@
 .aiec-post.aiec-draggable:active {
     cursor: grabbing;
 }
+
 
 .aiec-post.aiec-dragging {
     opacity: 0.5;
@@ -391,12 +394,48 @@
 }
 
 .aiec-post-list a {
+    flex: 1;
     text-decoration: none;
     color: var(--color-text);
 }
 
 .aiec-post-list a:hover {
     color: var(--color-accent);
+}
+
+.aiec-modal-post-item {
+    position: relative;
+}
+
+.aiec-delete-post {
+    background: transparent;
+    border: none;
+    color: var(--color-text-light);
+    cursor: pointer;
+    padding: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+    margin-left: auto;
+}
+
+.aiec-delete-post:hover {
+    background: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
+}
+
+.aiec-delete-post:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.aiec-delete-post .dashicons {
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+    line-height: 1;
 }
 
 .aiec-post-status {
@@ -836,8 +875,43 @@
 }
 
 .aiec-col-actions {
-    width: 100px;
+    width: 120px;
     text-align: right;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.aiec-btn-icon {
+    background: transparent;
+    border: none;
+    color: var(--color-text-light);
+    cursor: pointer;
+    padding: 4px 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+    min-width: auto;
+}
+
+.aiec-btn-icon:hover {
+    background: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
+}
+
+.aiec-btn-icon:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.aiec-btn-icon .dashicons {
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+    line-height: 1;
 }
 
 .aiec-list-pagination {

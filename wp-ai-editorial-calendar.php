@@ -39,6 +39,7 @@ class AI_Editorial_Calendar {
         add_action('admin_post_aiec_uninstall', [$this, 'handle_uninstall']);
         add_action('wp_ajax_aiec_create_draft', [$this, 'ajax_create_draft']);
         add_action('wp_ajax_aiec_generate_outline', [$this, 'ajax_generate_outline']);
+        add_action('wp_ajax_aiec_trash_post', [$this, 'ajax_trash_post']);
         add_filter('plugin_action_links_' . plugin_basename(__FILE__), [$this, 'add_plugin_action_links']);
         add_action('admin_bar_menu', [$this, 'add_admin_bar_link'], 100);
         add_action('post_submitbox_misc_actions', [$this, 'add_editor_return_link']);
@@ -212,7 +213,8 @@ class AI_Editorial_Calendar {
                 null
             );
             
-            wp_enqueue_style('aiec-styles', AIEC_PLUGIN_URL . 'assets/css/calendar.css', ['aiec-fonts'], AIEC_VERSION);
+            wp_enqueue_style('dashicons');
+            wp_enqueue_style('aiec-styles', AIEC_PLUGIN_URL . 'assets/css/calendar.css', ['aiec-fonts', 'dashicons'], AIEC_VERSION);
             wp_enqueue_script('aiec-calendar', AIEC_PLUGIN_URL . 'assets/js/calendar.js', ['jquery'], AIEC_VERSION, true);
 
             wp_localize_script('aiec-calendar', 'aiecData', [
@@ -533,7 +535,41 @@ class AI_Editorial_Calendar {
         // Flag that this draft was created from the AI Editorial Calendar
         update_post_meta($post_id, '_aiec_from_calendar', '1');
 
-        wp_send_json_success(['id' => $post_id]);
+        wp_send_json_success([
+            'id' => $post_id,
+            'editUrl' => get_edit_post_link($post_id, 'raw')
+        ]);
+    }
+
+    public function ajax_trash_post() {
+        check_ajax_referer('aiec_nonce', 'nonce');
+
+        if (!current_user_can('delete_posts')) {
+            wp_send_json_error(__('Unauthorized', 'ai-editorial-calendar'));
+        }
+
+        $post_id = intval($_POST['post_id'] ?? 0);
+
+        if (!$post_id) {
+            wp_send_json_error(__('Invalid post ID', 'ai-editorial-calendar'));
+        }
+
+        $post = get_post($post_id);
+        if (!$post) {
+            wp_send_json_error(__('Post not found', 'ai-editorial-calendar'));
+        }
+
+        if (!current_user_can('delete_post', $post_id)) {
+            wp_send_json_error(__('You do not have permission to delete this post', 'ai-editorial-calendar'));
+        }
+
+        $result = wp_trash_post($post_id);
+
+        if (!$result) {
+            wp_send_json_error(__('Failed to trash post', 'ai-editorial-calendar'));
+        }
+
+        wp_send_json_success();
     }
 
     public function ajax_generate_outline() {
