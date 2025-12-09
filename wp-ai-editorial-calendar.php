@@ -403,11 +403,11 @@ class AI_Editorial_Calendar {
 
         $calendar_url = $this->get_calendar_url();
 
-        // Always show the notice - streamlined, compact design
+        // Always show the notice - prominent button design
         echo '<div class="aiec-classic-notice">';
-        echo '<a href="' . esc_url($calendar_url) . '" class="aiec-editor-link">';
+        echo '<a href="' . esc_url($calendar_url) . '" class="aiec-editor-button button button-primary">';
         echo '<span class="dashicons dashicons-calendar-alt"></span>';
-        echo '<span class="aiec-editor-link-text">' . esc_html__('Editorial Calendar', 'ai-editorial-calendar') . '</span>';
+        echo '<span class="aiec-editor-button-text">' . esc_html__('Editorial Calendar', 'ai-editorial-calendar') . '</span>';
         echo '</a>';
         echo '</div>';
     }

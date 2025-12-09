@@ -30,14 +30,14 @@
             return;
         }
 
-        // Create notice element - compact, streamlined design
+        // Create notice element - prominent button with clear spacing
         const notice = document.createElement('div');
         notice.className = 'aiec-gutenberg-notice';
         
         notice.innerHTML = `
-            <a href="${aiecEditorNotice.calendarUrl}" class="aiec-editor-link">
+            <a href="${aiecEditorNotice.calendarUrl}" class="aiec-editor-button button button-primary">
                 <span class="dashicons dashicons-calendar-alt"></span>
-                <span class="aiec-editor-link-text">${aiecEditorNotice.strings.returnToCalendar}</span>
+                <span class="aiec-editor-button-text">${aiecEditorNotice.strings.returnToCalendar}</span>
             </a>
         `;
 
