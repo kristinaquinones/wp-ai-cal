@@ -633,7 +633,6 @@
                 const date = this.currentView === 'list' ? this.formatDate(new Date()) : ($('#aiec-modal').data('date') || this.formatDate(new Date()));
                 return `<div class="aiec-suggestion-item">
                     <strong>${this.escapeHtml(title)}</strong><br>
-                    ${desc ? this.escapeHtml(desc) + '<br>' : ''}
                     <button type="button" class="aiec-btn aiec-btn-small aiec-create-draft" data-title="${titleData}" data-desc="${descData}" data-date="${date}">Create Draft</button>
                 </div>`;
             }).join('');

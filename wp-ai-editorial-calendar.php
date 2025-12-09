@@ -509,7 +509,6 @@ class AI_Editorial_Calendar {
         
         echo '<div style="margin-top: 12px;">';
         echo '<button type="button" id="aiec-generate-outline" class="button button-primary" data-post-id="' . esc_attr($post->ID) . '">';
-        echo '<span class="dashicons dashicons-calendar-alt" style="margin-right:6px; width:16px; height:16px; line-height:16px;"></span>';
         echo esc_html__('Generate an Outline', 'ai-editorial-calendar');
         echo '</button>';
         // Calendar link button
