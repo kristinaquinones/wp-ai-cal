@@ -36,6 +36,8 @@
         calendarButton.href = aiecEditorNotice.calendarUrl;
         calendarButton.className = 'aiec-calendar-toolbar-button components-button has-icon is-tertiary is-compact';
         calendarButton.setAttribute('aria-label', aiecEditorNotice.strings.returnToCalendar);
+        // Use data-tooltip for immediate custom tooltip; keep title as a fallback
+        calendarButton.setAttribute('data-tooltip', aiecEditorNotice.strings.returnToCalendar);
         calendarButton.setAttribute('title', aiecEditorNotice.strings.returnToCalendar);
         calendarButton.innerHTML = '<span class="dashicons dashicons-calendar-alt"></span>';
 
