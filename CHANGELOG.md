@@ -29,10 +29,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Drag and drop functionality in list view (deferred to future update due to technical complexity)
 
-### Removed
-
-- Drag and drop functionality in list view (deferred to future update due to technical complexity)
-
 ### Changed
 
 - AI suggestion descriptions now visible in post editor meta box
