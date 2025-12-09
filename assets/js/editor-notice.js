@@ -14,17 +14,22 @@
     }
 
     function insertCalendarButton() {
-        // Look for modern Gutenberg header areas
-        const headerSettings = document.querySelector('.edit-post-header__settings');
-        const headerToolbar = document.querySelector('.edit-post-header__toolbar');
-
-        if (!headerSettings && !headerToolbar) {
-            return false;
-        }
-
         // Prevent duplicates
         if (document.querySelector('.aiec-calendar-toolbar-button')) {
             return true;
+        }
+
+        // Common header containers in WP 6.9
+        const candidates = [
+            '.edit-post-header__settings',
+            '.edit-post-header__toolbar',
+            '.interface-interface-skeleton__header .edit-post-header__settings',
+            '.interface-interface-skeleton__header .edit-post-header__toolbar'
+        ];
+
+        const host = candidates.map(sel => document.querySelector(sel)).find(Boolean);
+        if (!host) {
+            return false;
         }
 
         const calendarButton = document.createElement('a');
@@ -34,25 +39,24 @@
         calendarButton.setAttribute('title', aiecEditorNotice.strings.returnToCalendar);
         calendarButton.innerHTML = '<span class="dashicons dashicons-calendar-alt"></span>';
 
-        // Try to insert before the Preview button; otherwise append
-        if (headerSettings) {
-            const previewButton = headerSettings.querySelector(
-                '[aria-label*="Preview"], [aria-label*="preview"], .edit-post-header-preview__button-external, .edit-post-header-preview__button-toggle'
-            );
-            if (previewButton && previewButton.parentNode) {
-                previewButton.parentNode.insertBefore(calendarButton, previewButton);
-                return true;
-            }
-            headerSettings.insertBefore(calendarButton, headerSettings.firstChild);
+        // Try to place before Preview or Schedule buttons
+        const previewButton = host.querySelector(
+            '[aria-label*="Preview"], [aria-label*="preview"], .edit-post-header-preview__button-external, .edit-post-header-preview__button-toggle'
+        );
+        const scheduleButton = host.querySelector('[aria-label*="Schedule"], [aria-label*="Publish"], .editor-post-publish-button__button');
+
+        if (previewButton && previewButton.parentNode) {
+            previewButton.parentNode.insertBefore(calendarButton, previewButton);
+            return true;
+        }
+        if (scheduleButton && scheduleButton.parentNode) {
+            scheduleButton.parentNode.insertBefore(calendarButton, scheduleButton);
             return true;
         }
 
-        if (headerToolbar) {
-            headerToolbar.appendChild(calendarButton);
-            return true;
-        }
-
-        return false;
+        // Fallback: append to host
+        host.appendChild(calendarButton);
+        return true;
     }
 
     // Wait for Gutenberg to fully initialize
