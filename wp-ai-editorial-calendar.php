@@ -115,6 +115,73 @@ class AI_Editorial_Calendar {
         return get_option('aiec_api_key', '');
     }
 
+    /**
+     * Get the calendar page URL
+     *
+     * @return string Calendar admin URL
+     */
+    private function get_calendar_url() {
+        return admin_url('admin.php?page=ai-editorial-calendar');
+    }
+
+    /**
+     * Get provider display name
+     *
+     * @param string $provider Provider key (openai, anthropic, google)
+     * @return string Provider display name
+     */
+    private function get_provider_name($provider) {
+        $provider_names = [
+            'openai' => 'OpenAI',
+            'anthropic' => 'Anthropic',
+            'google' => 'Google'
+        ];
+        return $provider_names[$provider] ?? 'OpenAI';
+    }
+
+    /**
+     * Get primary category for a post
+     *
+     * @param int $post_id Post ID
+     * @return string Primary category name or empty string
+     */
+    private function get_primary_category($post_id) {
+        $primary_category = '';
+        $categories = get_the_category($post_id);
+        
+        if (!empty($categories)) {
+            // Use first category as primary, or check for Yoast primary category
+            $primary_category = $categories[0]->name;
+            $yoast_primary = get_post_meta($post_id, '_yoast_wpseo_primary_category', true);
+            if ($yoast_primary) {
+                $cat = get_category($yoast_primary);
+                if ($cat && !is_wp_error($cat)) {
+                    $primary_category = $cat->name;
+                }
+            }
+        }
+        
+        return $primary_category;
+    }
+
+    /**
+     * Build post event data array
+     *
+     * @param WP_Post $post Post object
+     * @return array Post event data
+     */
+    private function build_post_event($post) {
+        return [
+            'id' => $post->ID,
+            'title' => $post->post_title ?: __('(no title)', 'ai-editorial-calendar'),
+            'date' => $post->post_date,
+            'status' => $post->post_status,
+            'editUrl' => get_edit_post_link($post->ID, 'raw'),
+            'type' => $post->post_type,
+            'category' => $this->get_primary_category($post->ID),
+        ];
+    }
+
     private function validate_date_time($date_string) {
         if (empty($date_string)) {
             return false;
@@ -184,14 +251,27 @@ class AI_Editorial_Calendar {
             if ($post && get_post_meta($post->ID, '_aiec_from_calendar', true)) {
                 wp_enqueue_script('aiec-meta-box', AIEC_PLUGIN_URL . 'assets/js/meta-box.js', ['jquery'], AIEC_VERSION, true);
                 
+                $provider = get_option('aiec_ai_provider', 'openai');
+                $provider_name = $this->get_provider_name($provider);
+                
+                // Check if post already has content
+                $has_content = !empty($post->post_content);
+                
                 wp_localize_script('aiec-meta-box', 'aiecMetaBox', [
                     'ajaxUrl' => admin_url('admin-ajax.php'),
                     'nonce' => wp_create_nonce('aiec_generate_outline'),
                     'postId' => $post->ID,
+                    'providerName' => $provider_name,
+                    'hasContent' => $has_content,
                     'strings' => [
                         'generating' => __('Generating outline...', 'ai-editorial-calendar'),
                         'success' => __('Outline generated successfully!', 'ai-editorial-calendar'),
                         'error' => __('Error generating outline. Please try again.', 'ai-editorial-calendar'),
+                        'confirmRegenerate' => sprintf(
+                            /* translators: %s: AI provider name (OpenAI, Anthropic, Google) */
+                            __('Are you sure? You\'re using %s credits for each request. 👀', 'ai-editorial-calendar'),
+                            $provider_name
+                        ),
                     ]
                 ]);
             }
@@ -220,7 +300,7 @@ class AI_Editorial_Calendar {
         $wp_admin_bar->add_node([
             'id' => 'aiec-calendar',
             'title' => __('Editorial Calendar', 'ai-editorial-calendar'),
-            'href' => admin_url('admin.php?page=ai-editorial-calendar'),
+            'href' => $this->get_calendar_url(),
             'parent' => false,
         ]);
     }
@@ -230,7 +310,7 @@ class AI_Editorial_Calendar {
             return;
         }
 
-        $calendar_url = admin_url('admin.php?page=ai-editorial-calendar');
+        $calendar_url = $this->get_calendar_url();
         echo '<div class="misc-pub-section" style="padding-top: 10px; border-top: 1px solid #ddd; margin-top: 10px;">';
         echo '<a href="' . esc_url($calendar_url) . '" class="button button-secondary" style="width: 100%; text-align: center; margin-top: 5px;">';
         echo esc_html__('Return to Editorial Calendar', 'ai-editorial-calendar');
@@ -243,7 +323,7 @@ class AI_Editorial_Calendar {
             return $return;
         }
 
-        $calendar_url = admin_url('admin.php?page=ai-editorial-calendar');
+        $calendar_url = $this->get_calendar_url();
         $calendar_link = '<a href="' . esc_url($calendar_url) . '" class="button button-small" style="margin-left: 8px;">' . esc_html__('Return to Editorial Calendar', 'ai-editorial-calendar') . '</a>';
         
         // Add the link after the existing preview/permalink HTML
@@ -331,32 +411,7 @@ class AI_Editorial_Calendar {
             'posts_per_page' => -1,
         ]);
 
-        $events = array_map(function($post) {
-            // Get primary category
-            $primary_category = '';
-            $categories = get_the_category($post->ID);
-            if (!empty($categories)) {
-                // Use first category as primary, or check for Yoast primary category
-                $primary_category = $categories[0]->name;
-                $yoast_primary = get_post_meta($post->ID, '_yoast_wpseo_primary_category', true);
-                if ($yoast_primary) {
-                    $cat = get_category($yoast_primary);
-                    if ($cat && !is_wp_error($cat)) {
-                        $primary_category = $cat->name;
-                    }
-                }
-            }
-
-            return [
-                'id' => $post->ID,
-                'title' => $post->post_title ?: __('(no title)', 'ai-editorial-calendar'),
-                'date' => $post->post_date,
-                'status' => $post->post_status,
-                'editUrl' => get_edit_post_link($post->ID, 'raw'),
-                'type' => $post->post_type,
-                'category' => $primary_category,
-            ];
-        }, $posts);
+        $events = array_map([$this, 'build_post_event'], $posts);
 
         wp_send_json_success($events);
     }
@@ -393,32 +448,7 @@ class AI_Editorial_Calendar {
         $query = new WP_Query($args);
         $posts = $query->posts;
 
-        $events = array_map(function($post) {
-            // Get primary category
-            $primary_category = '';
-            $categories = get_the_category($post->ID);
-            if (!empty($categories)) {
-                // Use first category as primary, or check for Yoast primary category
-                $primary_category = $categories[0]->name;
-                $yoast_primary = get_post_meta($post->ID, '_yoast_wpseo_primary_category', true);
-                if ($yoast_primary) {
-                    $cat = get_category($yoast_primary);
-                    if ($cat && !is_wp_error($cat)) {
-                        $primary_category = $cat->name;
-                    }
-                }
-            }
-
-            return [
-                'id' => $post->ID,
-                'title' => $post->post_title ?: __('(no title)', 'ai-editorial-calendar'),
-                'date' => $post->post_date,
-                'status' => $post->post_status,
-                'editUrl' => get_edit_post_link($post->ID, 'raw'),
-                'type' => $post->post_type,
-                'category' => $primary_category,
-            ];
-        }, $posts);
+        $events = array_map([$this, 'build_post_event'], $posts);
 
         wp_send_json_success([
             'posts' => $events,
@@ -582,8 +612,9 @@ class AI_Editorial_Calendar {
         }
 
         $prompt .= "\nFormat: Plain text only. Use markdown-style headings (## for main sections, ### for subsections) and - for bullet points.\n";
-        $prompt .= "Structure: Intro, 3-5 main sections (each with 2-4 subsections and 2-3 bullet points), Conclusion with CTA.\n";
-        $prompt .= "Make headings action-oriented and bullets specific/actionable. Output only the outline, no explanations or metadata.";
+        $prompt .= "Structure: Intro, 3 main sections (each with 3 bullet points), Conclusion with CTA.\n";
+        $prompt .= "Make headings action-oriented and bullets specific/actionable.";
+        $prompt .= "Do NOT repeat the title or description in your output. Start directly with the Introduction section heading (## Introduction). Output only the outline structure, no explanations or metadata.";
 
         return $prompt;
     }
@@ -796,7 +827,7 @@ class AI_Editorial_Calendar {
         return $content;
     }
 
-    private function call_google($api_key, $prompt) {
+    private function call_google($api_key, $prompt, $max_tokens = 500) {
         $response = wp_remote_post('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent', [
             'headers' => [
                 'Content-Type' => 'application/json',
