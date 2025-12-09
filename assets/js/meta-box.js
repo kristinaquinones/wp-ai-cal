@@ -47,25 +47,36 @@
                         // Gutenberg editor - convert markdown-style headings to HTML blocks
                         if (window.wp && window.wp.data && window.wp.blocks) {
                             try {
+                                // Escape HTML function to prevent XSS
+                                const escapeHtml = function(text) {
+                                    const div = document.createElement('div');
+                                    div.textContent = text;
+                                    return div.innerHTML;
+                                };
+
                                 // Convert markdown to HTML for block parsing
                                 let htmlContent = outline
                                     .split('\n')
                                     .map(line => {
                                         line = line.trim();
                                         if (!line) return '';
-                                        // Markdown headings
+                                        // Markdown headings - escape content to prevent XSS
                                         if (line.match(/^##\s+(.+)$/)) {
-                                            return '<h2>' + line.replace(/^##\s+/, '') + '</h2>';
+                                            const content = escapeHtml(line.replace(/^##\s+/, ''));
+                                            return '<h2>' + content + '</h2>';
                                         }
                                         if (line.match(/^###\s+(.+)$/)) {
-                                            return '<h3>' + line.replace(/^###\s+/, '') + '</h3>';
+                                            const content = escapeHtml(line.replace(/^###\s+/, ''));
+                                            return '<h3>' + content + '</h3>';
                                         }
-                                        // Bullet points
+                                        // Bullet points - escape content to prevent XSS
                                         if (line.match(/^-\s+(.+)$/)) {
-                                            return '<li>' + line.replace(/^-\s+/, '') + '</li>';
+                                            const content = escapeHtml(line.replace(/^-\s+/, ''));
+                                            return '<li>' + content + '</li>';
                                         }
-                                        // Regular text
-                                        return '<p>' + line + '</p>';
+                                        // Regular text - escape content to prevent XSS
+                                        const content = escapeHtml(line);
+                                        return '<p>' + content + '</p>';
                                     })
                                     .filter(line => line)
                                     .join('\n');
@@ -83,7 +94,7 @@
                                 }
                             } catch (e) {
                                 // Gutenberg update failed - content is saved, just need refresh
-                                console.log('Gutenberg update skipped - content saved server-side');
+                                // Content saved server-side, Gutenberg will refresh on next load
                             }
                         }
                         // Classic editor with TinyMCE
@@ -111,9 +122,16 @@
                         }, 300);
                     } else {
                         // Show error message
+                        // Escape error message to prevent XSS
+                        const escapeHtml = function(text) {
+                            const div = document.createElement('div');
+                            div.textContent = text;
+                            return div.innerHTML;
+                        };
+                        const errorMsg = response.data ? escapeHtml(response.data) : '';
                         $message
                             .addClass('notice notice-error')
-                            .html('<p><strong>' + aiecMetaBox.strings.error + '</strong><br>' + (response.data || '') + '</p>')
+                            .html('<p><strong>' + aiecMetaBox.strings.error + '</strong><br>' + errorMsg + '</p>')
                             .show();
                     }
                 },
@@ -121,9 +139,16 @@
                     $spinner.css('visibility', 'hidden');
                     $btn.prop('disabled', false);
                     
+                    // Escape error message to prevent XSS
+                    const escapeHtml = function(text) {
+                        const div = document.createElement('div');
+                        div.textContent = text;
+                        return div.innerHTML;
+                    };
+                    const errorMsg = error ? escapeHtml(error) : '';
                     $message
                         .addClass('notice notice-error')
-                        .html('<p><strong>' + aiecMetaBox.strings.error + '</strong><br>' + error + '</p>')
+                        .html('<p><strong>' + aiecMetaBox.strings.error + '</strong><br>' + errorMsg + '</p>')
                         .show();
                 }
             });

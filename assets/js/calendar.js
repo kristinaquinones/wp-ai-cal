@@ -11,6 +11,7 @@
         listPerPage: 20,
         listTotal: 0,
         listPages: 0,
+        confirmCallback: null,
         listFilters: {
             search: '',
             status: ''
@@ -27,6 +28,30 @@
             $('.aiec-nav-next').on('click', () => this.navigate(1));
             $('.aiec-nav-today').on('click', () => this.goToToday());
             $('.aiec-modal-close').on('click', () => this.closeModal());
+            $('.aiec-confirm-cancel').on('click', () => this.closeConfirmModal());
+            $(document).on('click', '#aiec-confirm-modal', (e) => {
+                if ($(e.target).hasClass('aiec-modal')) {
+                    this.closeConfirmModal();
+                }
+            });
+            
+            // Prevent link clicks from interfering with delete button
+            $(document).on('click', '.aiec-modal-post-link', (e) => {
+                // Only prevent if clicking near the delete button
+                const $link = $(e.currentTarget);
+                const $li = $link.closest('.aiec-modal-post-item');
+                const clickX = e.pageX;
+                const $deleteBtn = $li.find('.aiec-delete-post');
+                if ($deleteBtn.length) {
+                    const btnOffset = $deleteBtn.offset();
+                    const btnWidth = $deleteBtn.outerWidth();
+                    // If click is in the delete button area, prevent link navigation
+                    if (clickX >= btnOffset.left && clickX <= btnOffset.left + btnWidth) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                }
+            });
             $('.aiec-get-suggestions').on('click', () => this.getSuggestions());
             
             // View toggle
@@ -83,51 +108,64 @@
             });
 
             // Delete/trash post
-            $(document).on('click', '.aiec-delete-post', (e) => {
+            $(document).on('click', '.aiec-delete-post', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                const $btn = $(e.currentTarget);
+                const $btn = $(this);
                 const postId = parseInt($btn.data('post-id'));
                 
-                if (!postId) return;
-                
-                if (!confirm('Are you sure you want to trash this post? It will be moved to the trash and can be restored later.')) {
+                if (!postId) {
+                    // Silently fail - button may not be properly configured
                     return;
                 }
                 
-                $btn.prop('disabled', true);
-                
-                $.post(aiecData.ajaxUrl, {
-                    action: 'aiec_trash_post',
-                    nonce: aiecData.nonce,
-                    post_id: postId
-                }, (response) => {
-                    if (response.success) {
-                        // Reload posts based on current view
-                        if (this.currentView === 'list') {
-                            this.loadListPosts();
-                        } else {
-                            // Check if modal is open before reloading
-                            const modalDate = $('#aiec-modal').data('date');
-                            if (modalDate) {
-                                // Reload posts, then refresh modal with updated data
-                                this.loadPosts(() => {
-                                    this.openModal(modalDate);
-                                });
+                const self = Calendar;
+                self.showConfirmModal(
+                    'Are you sure you want to trash this post? It will be moved to the trash and can be restored later.',
+                    function() {
+                        $btn.prop('disabled', true);
+                        
+                        $.post(aiecData.ajaxUrl, {
+                            action: 'aiec_trash_post',
+                            nonce: aiecData.nonce,
+                            post_id: postId
+                        }, (response) => {
+                            $btn.prop('disabled', false);
+                            
+                            if (response.success) {
+                                // Reload posts immediately based on current view
+                                if (self.currentView === 'list') {
+                                    self.loadListPosts();
+                                } else {
+                                    // Check if modal is open before reloading
+                                    const modalDate = $('#aiec-modal').data('date');
+                                    if (modalDate) {
+                                        // Reload posts, then refresh modal with updated data
+                                        self.loadPosts(() => {
+                                            self.openModal(modalDate);
+                                        });
+                                    } else {
+                                        // Just reload posts if modal is not open
+                                        self.loadPosts();
+                                    }
+                                }
                             } else {
-                                // Just reload posts if modal is not open
-                                this.loadPosts();
+                                alert(response.data || 'Failed to trash post');
                             }
-                        }
-                    } else {
-                        alert(response.data || 'Failed to trash post');
-                        $btn.prop('disabled', false);
+                        }).fail(() => {
+                            $btn.prop('disabled', false);
+                            alert('Network error. Please try again.');
+                        });
                     }
-                }).fail(() => {
-                    alert('Network error. Please try again.');
-                    $btn.prop('disabled', false);
-                });
+                );
+            });
+            
+            // Also handle clicks on the dashicons inside the delete button
+            $(document).on('click', '.aiec-delete-post .dashicons', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                $(this).closest('.aiec-delete-post').trigger('click');
             });
 
             // Create draft from suggestion
@@ -457,7 +495,7 @@
                 dayPosts.forEach(post => {
                     postsHtml += `<li class="aiec-modal-post-item" data-post-id="${post.id}">
                         <span class="aiec-post-status aiec-status-${post.status}">${post.status}</span>
-                        <a href="${post.editUrl}" target="_blank">${this.escapeHtml(post.title)}</a>
+                        <a href="${post.editUrl}" target="_blank" class="aiec-modal-post-link">${this.escapeHtml(post.title)}</a>
                         <button type="button" class="aiec-delete-post" data-post-id="${post.id}" title="Trash post">
                             <span class="dashicons dashicons-trash"></span>
                         </button>
@@ -488,6 +526,27 @@
 
         closeModal: function() {
             $('#aiec-modal').fadeOut(200);
+        },
+
+        showConfirmModal: function(message, onConfirm) {
+            $('.aiec-confirm-message').text(message);
+            $('#aiec-confirm-modal').fadeIn(200);
+            
+            // Store the confirm callback
+            this.confirmCallback = onConfirm;
+            
+            // Handle confirm button click
+            $('.aiec-confirm-ok').off('click.confirm').on('click.confirm', () => {
+                this.closeConfirmModal();
+                if (this.confirmCallback) {
+                    this.confirmCallback();
+                }
+            });
+        },
+
+        closeConfirmModal: function() {
+            $('#aiec-confirm-modal').fadeOut(200);
+            this.confirmCallback = null;
         },
 
         getSuggestions: function() {

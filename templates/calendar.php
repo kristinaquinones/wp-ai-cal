@@ -140,6 +140,19 @@ $has_api_key = !empty(AI_Editorial_Calendar::get_instance()->get_api_key());
         </div>
     </div>
 
+    <div id="aiec-confirm-modal" class="aiec-modal" style="display: none;">
+        <div class="aiec-modal-content aiec-confirm-modal-content">
+            <h3 class="aiec-confirm-title"><?php esc_html_e('Confirm Action', 'ai-editorial-calendar'); ?></h3>
+            <div class="aiec-confirm-body">
+                <p class="aiec-confirm-message"></p>
+            </div>
+            <div class="aiec-confirm-actions">
+                <button type="button" class="aiec-btn aiec-btn-secondary aiec-confirm-cancel"><?php esc_html_e('Cancel', 'ai-editorial-calendar'); ?></button>
+                <button type="button" class="aiec-btn aiec-btn-primary aiec-confirm-ok"><?php esc_html_e('Confirm', 'ai-editorial-calendar'); ?></button>
+            </div>
+        </div>
+    </div>
+
     <div class="aiec-attribution">
         <p>
             <?php
