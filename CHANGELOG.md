@@ -11,8 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - List view with table format, search, status filtering, and pagination
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 - Drag and drop scheduling for draft, pending, and scheduled posts (calendar and list views)
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 - Drag and drop scheduling for draft, pending, and scheduled posts (calendar view)
@@ -34,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 - Drag and drop in list view now correctly updates post dates (was using wrong data array and render method)
 
 ### Code Quality
@@ -43,6 +47,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 =======
 - Pages no longer appear in calendar or list view (posts only)
+=======
+- Pages no longer appear in calendar or list view (posts only)
+
+### Removed
+
+- Drag and drop functionality in list view (deferred to future update due to technical complexity)
+
+### Changed
+>>>>>>> Stashed changes
 
 ### Removed
 
