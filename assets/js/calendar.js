@@ -432,8 +432,8 @@
             };
 
             const date = dateOverride
+                || getListSelectedDate()
                 || $('#aiec-modal').data('date')
-                || (this.currentView === 'list' ? getListSelectedDate() : null)
                 || this.formatDate(new Date());
             const time = this.getRandomFutureTime();
             const dateTime = `${date} ${time}`;

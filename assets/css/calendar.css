@@ -900,6 +900,37 @@
     word-break: break-word;
 }
 
+.aiec-list-table th.aiec-col-drag,
+.aiec-list-table td.aiec-col-drag {
+    width: 6%;
+    min-width: 40px;
+}
+
+.aiec-list-table th.aiec-col-date,
+.aiec-list-table td.aiec-col-date {
+    width: 20%;
+    min-width: 140px;
+}
+
+.aiec-list-table th.aiec-col-title,
+.aiec-list-table td.aiec-col-title {
+    width: 44%;
+    min-width: 240px;
+}
+
+.aiec-list-table th.aiec-col-status,
+.aiec-list-table td.aiec-col-status {
+    width: 15%;
+    min-width: 120px;
+    text-align: center;
+}
+
+.aiec-list-table th.aiec-col-actions,
+.aiec-list-table td.aiec-col-actions {
+    width: 15%;
+    min-width: 140px;
+}
+
 .aiec-list-table tbody tr {
     transition: background 0.2s ease;
 }
