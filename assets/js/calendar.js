@@ -11,6 +11,7 @@
         listPerPage: 20,
         listTotal: 0,
         listPages: 0,
+        confirmCallback: null,
         listFilters: {
             search: '',
             status: ''
@@ -27,6 +28,12 @@
             $('.aiec-nav-next').on('click', () => this.navigate(1));
             $('.aiec-nav-today').on('click', () => this.goToToday());
             $('.aiec-modal-close').on('click', () => this.closeModal());
+            $('.aiec-confirm-cancel').on('click', () => this.closeConfirmModal());
+            $(document).on('click', '#aiec-confirm-modal', (e) => {
+                if ($(e.target).hasClass('aiec-modal')) {
+                    this.closeConfirmModal();
+                }
+            });
             $('.aiec-get-suggestions').on('click', () => this.getSuggestions());
             
             // View toggle
@@ -92,37 +99,43 @@
                 
                 if (!postId) return;
                 
-                if (!confirm('Are you sure you want to trash this post? It will be moved to the trash and can be restored later.')) {
-                    return;
-                }
-                
-                $btn.prop('disabled', true);
-                
-                $.post(aiecData.ajaxUrl, {
-                    action: 'aiec_trash_post',
-                    nonce: aiecData.nonce,
-                    post_id: postId
-                }, (response) => {
-                    if (response.success) {
-                        // Reload posts based on current view
-                        if (this.currentView === 'list') {
-                            this.loadListPosts();
-                        } else {
-                            this.loadPosts();
-                            // If modal is open, refresh it
-                            const modalDate = $('#aiec-modal').data('date');
-                            if (modalDate) {
-                                this.openModal(modalDate);
+                const self = this;
+                this.showConfirmModal(
+                    'Are you sure you want to trash this post? It will be moved to the trash and can be restored later.',
+                    function() {
+                        $btn.prop('disabled', true);
+                        
+                        $.post(aiecData.ajaxUrl, {
+                            action: 'aiec_trash_post',
+                            nonce: aiecData.nonce,
+                            post_id: postId
+                        }, (response) => {
+                            $btn.prop('disabled', false);
+                            
+                            if (response.success) {
+                                // Reload posts immediately based on current view
+                                if (self.currentView === 'list') {
+                                    self.loadListPosts();
+                                } else {
+                                    self.loadPosts();
+                                    // If modal is open, refresh it immediately
+                                    const modalDate = $('#aiec-modal').data('date');
+                                    if (modalDate) {
+                                        // Small delay to ensure posts are reloaded first
+                                        setTimeout(() => {
+                                            self.openModal(modalDate);
+                                        }, 100);
+                                    }
+                                }
+                            } else {
+                                alert(response.data || 'Failed to trash post');
                             }
-                        }
-                    } else {
-                        alert(response.data || 'Failed to trash post');
-                        $btn.prop('disabled', false);
+                        }).fail(() => {
+                            $btn.prop('disabled', false);
+                            alert('Network error. Please try again.');
+                        });
                     }
-                }).fail(() => {
-                    alert('Network error. Please try again.');
-                    $btn.prop('disabled', false);
-                });
+                );
             });
 
             // Create draft from suggestion
@@ -479,6 +492,27 @@
 
         closeModal: function() {
             $('#aiec-modal').fadeOut(200);
+        },
+
+        showConfirmModal: function(message, onConfirm) {
+            $('.aiec-confirm-message').text(message);
+            $('#aiec-confirm-modal').fadeIn(200);
+            
+            // Store the confirm callback
+            this.confirmCallback = onConfirm;
+            
+            // Handle confirm button click
+            $('.aiec-confirm-ok').off('click.confirm').on('click.confirm', () => {
+                this.closeConfirmModal();
+                if (this.confirmCallback) {
+                    this.confirmCallback();
+                }
+            });
+        },
+
+        closeConfirmModal: function() {
+            $('#aiec-confirm-modal').fadeOut(200);
+            this.confirmCallback = null;
         },
 
         getSuggestions: function() {

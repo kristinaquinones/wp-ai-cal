@@ -337,6 +337,10 @@
     z-index: 100000;
 }
 
+#aiec-confirm-modal {
+    z-index: 100001;
+}
+
 .aiec-modal-content {
     background: var(--color-surface);
     border-radius: var(--radius);
@@ -346,6 +350,12 @@
     overflow-y: auto;
     position: relative;
     box-shadow: var(--shadow-md);
+}
+
+.aiec-confirm-modal-content {
+    max-width: 400px;
+    max-height: none;
+    overflow-y: visible;
 }
 
 .aiec-modal-close {
@@ -373,6 +383,33 @@
 
 .aiec-modal-body {
     padding: 20px;
+}
+
+/* Confirmation Modal */
+.aiec-confirm-title {
+    padding: 20px 20px 15px;
+    margin: 0;
+    border-bottom: 1px solid var(--color-border);
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.aiec-confirm-body {
+    padding: 20px;
+}
+
+.aiec-confirm-message {
+    margin: 0;
+    color: var(--color-text);
+    line-height: 1.6;
+}
+
+.aiec-confirm-actions {
+    padding: 15px 20px 20px;
+    border-top: 1px solid var(--color-border);
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
 }
 
 .aiec-post-list {
