@@ -49,10 +49,12 @@ A lightweight WordPress plugin that provides an editorial calendar with personal
 #### 1. Choose Your AI Provider
 
 Select from:
-- **OpenAI** - Uses GPT-4o-mini (~$0.001 per suggestion)
-- **Anthropic** - Uses Claude 3.5 Haiku (~$0.001 per suggestion)
-- **Google** - Uses Gemini 2.5 Flash Lite (free tier available)
-- **xAI Grok** - Uses Grok-2 (competitive pricing)
+- **OpenAI** - Uses GPT-4o-mini
+- **Anthropic** - Uses Claude 3.5 Haiku
+- **Google** - Uses Gemini 2.5 Flash Lite
+- **xAI Grok** - Uses Grok-2
+
+See pricing table below for cost details.
 
 #### 2. Enter Your API Key
 
@@ -66,17 +68,17 @@ _Review each provider for information on costs and free credit availability._
 
 #### 3. Configure Content Settings
 
-**Site Context** (max 500 characters)  
+**Site Context** (max 500 characters)
 Describe your website, target audience, and content goals. Example:
 
 > A tech blog for small business owners covering productivity tools, automation, and digital marketing tips.
 
-**Voice & Tone** (max 100 characters)  
+**Voice & Tone** (max 100 characters)
 Define the writing style for suggestions. Example:
 
 > professional but approachable, actionable
 
-**Topics to Avoid** (max 500 characters)  
+**Topics to Avoid** (max 500 characters)
 List topics, phrases, or approaches the AI should not suggest. Example:
 
 > politics, competitor mentions, overly technical jargon, clickbait titles
@@ -141,7 +143,7 @@ When you create a draft from an AI suggestion, a special meta box appears in the
   - Introduction section with guidance on hooking the reader
   - 3 main body sections with specific content direction
   - Conclusion with call-to-action guidance
-  - Plain text format with markdown-style headings (## and ###)
+  - Markdown format with headings (## and ###) for easy editing
 
 The outline provides structured writing guidance, telling you what to write about, how to approach it, and what to accomplish in each section. It's inserted directly into your post content, ready for you to expand into a full article.
 
@@ -164,10 +166,10 @@ The plugin provides multiple ways to access your editorial calendar:
 
 | Provider | Model | Cost |
 |----------|-------|------|
-| OpenAI | gpt-4o-mini | ~$0.001 per suggestion |
-| Anthropic | claude-3-5-haiku-latest | ~$0.001 per suggestion |
-| Google | gemini-2.5-flash-lite | Free tier available |
-| xAI Grok | grok-2 | Competitive pricing |
+| OpenAI | GPT-4o-mini | ~$0.001 per suggestion |
+| Anthropic | Claude 3.5 Haiku | ~$0.001 per suggestion |
+| Google | Gemini 2.5 Flash Lite | Free tier available |
+| xAI Grok | Grok-2 | Competitive pricing |
 
 ## Security & Privacy
 
