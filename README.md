@@ -54,8 +54,6 @@ Select from:
 - **Google** - Uses Gemini 2.5 Flash Lite
 - **xAI Grok** - Uses Grok-2
 
-See pricing table below for cost details.
-
 #### 2. Enter Your API Key
 
 Get an API key from your chosen provider:
