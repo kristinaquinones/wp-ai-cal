@@ -165,7 +165,7 @@ The plugin provides multiple ways to access your editorial calendar:
 ## Supported AI Models
 
 | Provider | Model |
-|----------|-------|------|
+|----------|-------|
 | OpenAI | GPT-4o-mini |
 | Anthropic | Claude 3.5 Haiku | 
 | Google | Gemini 2.5 Flash Lite | 
