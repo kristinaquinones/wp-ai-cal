@@ -9,7 +9,7 @@ if (!defined('ABSPATH')) {
         <p class="aiec-subtitle"><?php esc_html_e('Configure your AI provider and content preferences', 'ai-editorial-calendar'); ?></p>
     </div>
 
-    <?php if (isset($_GET['settings-updated']) && $_GET['settings-updated'] === 'true'): ?>
+    <?php if (isset($_GET['settings-updated']) && sanitize_text_field(wp_unslash($_GET['settings-updated'])) === 'true'): ?>
         <div class="notice notice-success is-dismissible">
             <p><?php esc_html_e('Settings saved successfully.', 'ai-editorial-calendar'); ?></p>
         </div>
