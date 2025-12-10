@@ -62,7 +62,7 @@ Get an API key from your chosen provider:
 - OpenAI: https://platform.openai.com/api-keys
 - Anthropic: https://console.anthropic.com/settings/keys
 - Google AI: https://aistudio.google.com/apikey
-- xAI Grok: https://console.x.ai/api-keys
+- xAI Grok: https://console.x.ai/
 
 _Review each provider for information on costs and free credit availability._
 
