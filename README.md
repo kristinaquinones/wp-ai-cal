@@ -106,7 +106,7 @@ Navigate to **Editorial Calendar** in the WordPress admin menu. You can switch b
   - **Green** - Published
   - **Yellow** - Draft
   - **Cyan** - Pending Review
-  - **Purple** - Scheduled
+  - **Indigo** - Scheduled
 
 **List View:**
 - Table format showing all posts with pagination
