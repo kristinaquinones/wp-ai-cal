@@ -61,7 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pages no longer appear in calendar or list view (posts only)
 - Drafts created outside the calendar UI can now be dragged and dropped
 
-### Removed
+### Deferred
 - Drag and drop functionality in list view (deferred to future update due to technical complexity)
 
 ### Security
