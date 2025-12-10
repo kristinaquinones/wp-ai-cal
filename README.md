@@ -10,7 +10,7 @@ A lightweight WordPress plugin that provides an editorial calendar with personal
 ## Features
 
 ### Content Management
-- **Visual Calendar** - Monthly grid view of all posts with color-coded status indicators (green=published, yellow=draft, cyan=pending, purple=scheduled)
+- **Visual Calendar** - Monthly grid view of all posts with color-coded status indicators (green=published, yellow=draft, cyan=pending, indigo=scheduled)
 - **List View** - Table view with search, filtering, sorting, and pagination for all posts
 - **Drag and Drop Scheduling** - Reschedule drafts and scheduled posts by dragging them to a new date (calendar view only)
 - **Quick Access** - Dashboard widget, admin bar link, and editor return buttons for seamless navigation

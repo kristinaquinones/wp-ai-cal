@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 #### Core Features
-- Monthly calendar view with color-coded status indicators (green=published, yellow=draft, cyan=pending, purple=scheduled)
+- Monthly calendar view with color-coded status indicators (green=published, yellow=draft, cyan=pending, indigo=scheduled)
 - List view with table format, search, status filtering, and pagination
 - Drag and drop scheduling for draft, pending, and scheduled posts in calendar view
 - AI-powered content suggestions with one-click draft creation
