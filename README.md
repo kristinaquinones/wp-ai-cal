@@ -9,15 +9,25 @@ A lightweight WordPress plugin that provides an editorial calendar with personal
 
 ## Features
 
-- **Visual Calendar** - Monthly grid view of all posts with color-coded status indicators
-- **List View** - Table view with search, filtering, and pagination for all posts
-- **Drag and Drop Scheduling** - Reschedule drafts and scheduled posts by dragging them to a new date (calendar view)
-- **AI Content Suggestions** - Get 3 personalized post ideas for any future date
-- **One-Click Draft Creation** - Create drafts directly from AI suggestions
-- **AI Suggestion Meta Box** - View AI suggestions in the post editor for drafts created from the calendar
-- **Generate Outline** - Automatically generate a detailed blog post outline from AI suggestions
-- **Multi-Provider Support** - Works with OpenAI, Anthropic, Google AI, or xAI Grok
-- **Minimal Configuration** - Just 3 settings to get started
+### Content Management
+- **Visual Calendar** - Monthly grid view of all posts with color-coded status indicators (green=published, yellow=draft, cyan=pending, indigo=scheduled)
+- **List View** - Table view with search, filtering, sorting, and pagination for all posts
+- **Drag and Drop Scheduling** - Reschedule drafts and scheduled posts by dragging them to a new date (calendar view only)
+- **Quick Access** - Dashboard widget, admin bar link, and editor return buttons for seamless navigation
+
+### AI-Powered Features
+- **AI Content Suggestions** - Get 3 personalized post ideas for any future date based on your site's context
+- **One-Click Draft Creation** - Create drafts directly from AI suggestions with a single click
+- **AI Suggestion Meta Box** - View original AI suggestions in the post editor for drafts created from the calendar
+- **Generate Outline** - Automatically create a detailed writing guide with structured sections (Introduction, 3 main sections with bullet points, Conclusion with CTA)
+- **Multi-Provider Support** - Choose from OpenAI (GPT-4o-mini), Anthropic (Claude 3.5 Haiku), Google (Gemini 2.5 Flash Lite), or xAI (Grok-2)
+- **Context-Aware** - AI analyzes your recent posts to avoid duplication and suggest complementary topics
+- **Date Intelligence** - Suggestions consider seasons, holidays, and timely trends
+
+### Configuration Options
+- **Basic Settings** - AI provider, API key, site context (max 500 chars), voice & tone (max 100 chars), topics to avoid (max 500 chars)
+- **Advanced Settings** (Optional) - Country/regional targeting (50+ countries), cultural/linguistic lens (40+ options), belief/religious context (20+ traditions), content focus (trends/evergreen/balanced)
+- **Minimal Setup** - Just 3 required settings to get started, with powerful optional customization
 
 ## Requirements
 
@@ -34,7 +44,9 @@ A lightweight WordPress plugin that provides an editorial calendar with personal
 
 ## Configuration
 
-### 1. Choose Your AI Provider
+### Basic Settings (Required)
+
+#### 1. Choose Your AI Provider
 
 Select from:
 - **OpenAI** - Uses GPT-4o-mini
@@ -42,18 +54,19 @@ Select from:
 - **Google** - Uses Gemini 2.5 Flash Lite
 - **xAI Grok** - Uses Grok-2
 
-### 2. Enter Your API Key
+See pricing table below for cost details.
+
+#### 2. Enter Your API Key
 
 Get an API key from your chosen provider:
 - OpenAI: https://platform.openai.com/api-keys
-- xAI Grok: https://console.x.ai/api-keys
 - Anthropic: https://console.anthropic.com/settings/keys
 - Google AI: https://aistudio.google.com/apikey
+- xAI Grok: https://console.x.ai/
 
-_Review each provider for more information on costs and free credit availability._
+_Review each provider for information on costs and free credit availability._
 
-
-### 3. Configure Content Settings
+#### 3. Configure Content Settings
 
 **Site Context** (max 500 characters)
 Describe your website, target audience, and content goals. Example:
@@ -70,6 +83,17 @@ List topics, phrases, or approaches the AI should not suggest. Example:
 
 > politics, competitor mentions, overly technical jargon, clickbait titles
 
+### Advanced Settings (Optional)
+
+Customize suggestions with additional context:
+
+- **Country/Region** - Select from 50+ countries for localized suggestions and holiday awareness
+- **Cultural Lens** - Choose from 40+ cultural/linguistic perspectives to tailor tone and references
+- **Belief/Religious Context** - Add from 20+ religious/spiritual traditions for relevant observances
+- **Content Focus** - Choose between trends (timely/seasonal), evergreen (always relevant), or balanced mix
+
+_Note: Advanced options increase prompt complexity. Select only what's relevant to your audience._
+
 ## Usage
 
 ### Viewing the Calendar
@@ -82,7 +106,7 @@ Navigate to **Editorial Calendar** in the WordPress admin menu. You can switch b
   - **Green** - Published
   - **Yellow** - Draft
   - **Cyan** - Pending Review
-  - **Purple** - Scheduled
+  - **Indigo** - Scheduled
 
 **List View:**
 - Table format showing all posts with pagination
@@ -112,36 +136,59 @@ The draft will be scheduled for a random time on the selected date, with the AI'
 
 ### AI Suggestion Meta Box
 
-When you create a draft from an AI suggestion, a special meta box appears in the post editor:
+When you create a draft from an AI suggestion, a special meta box appears in the post editor sidebar:
 
 - **View AI Suggestion** - See the original AI-generated description that inspired the post
-- **Generate an Outline** - Click to automatically create a detailed blog post outline with:
-  - Introduction section
-  - 3 main body sections with bullet points
-  - Conclusion with call-to-action
+- **Generate an Outline** - Click to automatically create a detailed writing guide with:
+  - Introduction section with guidance on hooking the reader
+  - 3 main body sections with specific content direction
+  - Conclusion with call-to-action guidance
+  - Markdown format with headings (## and ###) for easy editing
 
-The outline is generated in plain text format (markdown-style headings) and inserted directly into your post content, ready for you to expand into a full article. The outline is automatically cleaned to remove any extraneous formatting or AI response text.
+The outline provides structured writing guidance, telling you what to write about, how to approach it, and what to accomplish in each section. It's inserted directly into your post content, ready for you to expand into a full article.
 
 **Important Notes:**
-- The AI Suggestion meta box only appears for drafts that were created from the AI Editorial Calendar
-- If you regenerate an outline for a post that already has content, you'll be prompted to confirm since this uses your API credits
+- The AI Suggestion meta box only appears for drafts created from the AI Editorial Calendar
+- If you regenerate an outline for a post that already has content, you'll be prompted to confirm (uses API credits)
 - Only posts are displayed in the calendar and list views (pages are excluded)
+- Published posts cannot be dragged to prevent accidental changes to live content
+
+### Quick Access & Navigation
+
+The plugin provides multiple ways to access your editorial calendar:
+
+- **Dashboard Widget** - Quick actions on your WordPress dashboard (New Post, Get AI Suggestions, View Calendar)
+- **Admin Bar Link** - "Editorial Calendar" link in the WordPress admin bar for instant access
+- **Editor Return Buttons** - When editing a post, use the "Return to Editorial Calendar" button to navigate back
+- **Settings Link** - Quick access to settings from the Plugins page
 
 ## Supported AI Models
 
-| Provider | Model | Cost |
-|----------|-------|------|
-| OpenAI | gpt-4o-mini | ~$0.001 per suggestion |
-| Anthropic | claude-3-5-haiku-latest | ~$0.001 per suggestion |
-| Google | gemini-2.5-flash-lite | Free tier available |
-| xAI Grok | grok-2 | Competitive pricing |
+| Provider | Model |
+|----------|-------|
+| OpenAI | GPT-4o-mini |
+| Anthropic | Claude 3.5 Haiku | 
+| Google | Gemini 2.5 Flash Lite | 
+| xAI Grok | Grok-2 |
 
-## Security
+## Security & Privacy
 
-- API keys are stored in the WordPress options table (protected by database security)
-- All AJAX requests are protected with nonce verification
-- Capability checks ensure only authorized users can access features
-- Settings page requires `manage_options` capability
+- **Secure Storage** - API keys are stored in the WordPress options table (protected by database security)
+- **Request Protection** - All AJAX requests are protected with WordPress nonce verification
+- **Access Control** - Capability checks ensure only authorized users can access features
+- **Settings Security** - Settings page requires `manage_options` capability (administrator level)
+- **Input Validation** - Comprehensive sanitization and validation of all user inputs
+- **Token Limits** - Character limits prevent excessive API token usage (500 chars for context, 100 for tone)
+- **API Cost Protection** - Max token caps (2000) prevent runaway API costs
+- **Error Handling** - Robust error handling with retry logic for transient API failures
+- **Debug Logging** - Error logging only when WP_DEBUG is enabled (excludes sensitive data)
+
+## Performance & Reliability
+
+- **Retry Logic** - Automatic retry for transient failures (network issues, rate limits, server errors)
+- **Optimized Tokens** - Efficient prompts minimize API costs (~62% reduction for outlines)
+- **Model Health Check** - Built-in diagnostics to verify AI provider connectivity
+- **Clean Uninstall** - Complete data cleanup when plugin is removed
 
 ## License
 

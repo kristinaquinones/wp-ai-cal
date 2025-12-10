@@ -53,7 +53,7 @@ if (!defined('ABSPATH')) {
                         <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI</a> |
                         <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">Anthropic</a> |
                         <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI</a> |
-                        <a href="https://console.x.ai/api-keys" target="_blank" rel="noopener noreferrer">xAI Grok</a>
+                        <a href="https://console.x.ai/" target="_blank" rel="noopener noreferrer">xAI Grok</a>
                     </p>
                 </td>
             </tr>
