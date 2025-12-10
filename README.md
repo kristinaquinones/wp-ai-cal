@@ -166,7 +166,7 @@ The plugin provides multiple ways to access your editorial calendar:
 
 | Provider | Model | Cost |
 |----------|-------|------|
-| OpenAI | GPT-4o-mini | ~$0.001 per suggestion |
+| OpenAI | GPT-4o-mini |
 | Anthropic | Claude 3.5 Haiku | 
 | Google | Gemini 2.5 Flash Lite | 
 | xAI Grok | Grok-2 |
