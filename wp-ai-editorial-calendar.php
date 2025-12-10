@@ -448,7 +448,7 @@ class AI_Editorial_Calendar {
     }
     
     public function ajax_dismiss_notice() {
-        check_ajax_referer('aiec_dismiss_notice', 'nonce');
+        check_ajax_referer('aiec_nonce', 'nonce');
         
         if (!current_user_can('edit_posts')) {
             wp_send_json_error(__('Unauthorized', 'ai-editorial-calendar'));
@@ -591,8 +591,15 @@ class AI_Editorial_Calendar {
         delete_option('aiec_site_context');
         delete_option('aiec_tone');
         delete_option('aiec_avoid');
+        delete_option('aiec_country');
+        delete_option('aiec_region');
+        delete_option('aiec_culture');
+        delete_option('aiec_belief');
+        delete_option('aiec_focus_type');
 
-        wp_safe_redirect(add_query_arg('aiec-deleted', 'true', admin_url('admin.php?page=aiec-settings')));
+        // Use a transient instead of GET parameter for the success message
+        set_transient('aiec_settings_deleted', true, 30);
+        wp_safe_redirect(admin_url('admin.php?page=aiec-settings'));
         exit;
     }
 
