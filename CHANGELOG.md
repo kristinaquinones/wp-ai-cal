@@ -61,9 +61,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pages no longer appear in calendar or list view (posts only)
 - Drafts created outside the calendar UI can now be dragged and dropped
 
-### Deferred
-- Drag and drop functionality in list view (deferred to future update due to technical complexity)
-
 ### Security
 - All AJAX requests protected with nonce verification
 - Capability checks ensure only authorized users can access features
@@ -79,3 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed API method signature consistency (call_google now accepts max_tokens parameter)
 - Added comprehensive PHPDoc comments for helper methods
 - Implemented clean code practices with DRY principles
+
+## Other
+### Deferred
+- Drag and drop functionality in list view (deferred to future update due to technical complexity)
