@@ -105,7 +105,7 @@ $has_api_key = !empty(AI_Editorial_Calendar::get_instance()->get_api_key());
                 <button type="button" class="aiec-btn aiec-btn-primary aiec-new-post-list" data-tooltip="<?php esc_attr_e('Create a new post without AI suggestions', 'ai-editorial-calendar'); ?>"><?php esc_html_e('New Post', 'ai-editorial-calendar'); ?></button>
                 <?php if ($has_api_key): ?>
                     <div class="aiec-suggestions-inline">
-                        <button type="button" class="aiec-btn aiec-get-suggestions-list" data-tooltip="<?php esc_attr_e('Get AI suggestions for the selected date', 'ai-editorial-calendar'); ?>"><?php esc_html_e('Get AI Suggestions', 'ai-editorial-calendar'); ?></button>
+                    <button type="button" class="aiec-btn aiec-get-suggestions-list" data-tooltip="<?php esc_attr_e('Get AI suggestions for the selected date', 'ai-editorial-calendar'); ?>"><?php esc_html_e('Get AI Suggestions', 'ai-editorial-calendar'); ?></button>
                         <?php echo $aiec_date_picker; ?>
                     </div>
                 <?php else: ?>
