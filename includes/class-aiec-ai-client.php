@@ -102,6 +102,7 @@ class AIEC_AI_Client {
             }
             return new WP_Error('api_error', $error_message);
         }
+        }
 
         if (!is_array($decoded)) {
             return new WP_Error('api_error', __('Invalid API response format', 'ai-editorial-calendar'));
