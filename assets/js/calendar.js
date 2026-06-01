@@ -608,7 +608,12 @@
         },
 
         getSuggestions: function() {
-            if (!aiecData.hasApiKey || !aiecData.canUseAi) {
+            if (!aiecData.canUseAi) {
+                alert(aiecData.strings.noAiPermission || aiecData.strings.noApiKey);
+                return;
+            }
+
+            if (!aiecData.hasApiKey) {
                 alert(aiecData.strings.noApiKey);
                 return;
             }
@@ -871,7 +876,12 @@
         },
 
         getSuggestionsForList: function() {
-            if (!aiecData.hasApiKey || !aiecData.canUseAi) {
+            if (!aiecData.canUseAi) {
+                alert(aiecData.strings.noAiPermission || aiecData.strings.noApiKey);
+                return;
+            }
+
+            if (!aiecData.hasApiKey) {
                 alert(aiecData.strings.noApiKey);
                 return;
             }

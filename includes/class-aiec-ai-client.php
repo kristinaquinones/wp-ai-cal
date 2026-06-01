@@ -97,7 +97,7 @@ class AIEC_AI_Client {
 
         if ($response_code !== 200) {
             $error_message = __('API request failed with status code: ', 'ai-editorial-calendar') . $response_code;
-            if (isset($decoded['error']['message'])) {
+            if (is_array($decoded) && isset($decoded['error']['message'])) {
                 $error_message = sanitize_text_field($decoded['error']['message']);
             }
             return new WP_Error('api_error', $error_message);

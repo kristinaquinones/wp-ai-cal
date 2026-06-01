@@ -89,7 +89,7 @@ class AIEC_Settings {
     public static function sanitize_api_key($value) {
         // If empty, keep existing value
         if (empty($value)) {
-            return get_option('aiec_api_key');
+            return get_option('aiec_api_key', '');
         }
         // Only trim whitespace - don't use sanitize_text_field as it can corrupt API keys
         return trim($value);

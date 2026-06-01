@@ -232,6 +232,7 @@ class AI_Editorial_Calendar {
                     'getSuggestions' => __('Get AI Suggestions', 'ai-editorial-calendar'),
                     'loading' => __('Loading...', 'ai-editorial-calendar'),
                     'noApiKey' => __('Please configure your AI API key in Settings.', 'ai-editorial-calendar'),
+                    'noAiPermission' => __('You do not have permission to use AI suggestions.', 'ai-editorial-calendar'),
                     'months' => [
                         __('January', 'ai-editorial-calendar'),
                         __('February', 'ai-editorial-calendar'),
