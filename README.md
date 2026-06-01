@@ -171,14 +171,17 @@ The plugin provides multiple ways to access your editorial calendar:
 
 ## Security & Privacy
 
-- **Secure Storage** - API keys are stored in the WordPress options table (protected by database security)
+- **Key Storage** - API keys are stored in the WordPress options table with autoload disabled, so the secret is only loaded when actually used (not on every request)
+- **No External CDN** - Fonts are self-hosted from the plugin directory; the admin pages make no requests to third-party CDNs, so no admin IPs leak to font providers
 - **Request Protection** - All AJAX requests are protected with WordPress nonce verification
-- **Access Control** - Capability checks ensure only authorized users can access features
+- **Access Control** - Capability checks on every endpoint. AI suggestions and outline generation require the `publish_posts` capability (Authors, Editors, Administrators), so lower-trust Contributors cannot spend your API credits
+- **Rate Limiting** - Paid AI endpoints are throttled to 30 requests per user per hour to cap runaway costs
 - **Settings Security** - Settings page requires `manage_options` capability (administrator level)
-- **Input Validation** - Comprehensive sanitization and validation of all user inputs
+- **Input Validation** - Comprehensive sanitization and validation of all user inputs, with attribute-safe escaping of dynamic values in the calendar UI
 - **Token Limits** - Character limits prevent excessive API token usage (500 chars for context, 100 for tone)
 - **API Cost Protection** - Max token caps (2000) prevent runaway API costs
-- **Error Handling** - Robust error handling with retry logic for transient API failures
+- **Bounded Queries** - The calendar loads at most 500 posts per view to avoid memory exhaustion
+- **Error Handling** - Robust error handling with a bounded retry for transient API failures (20s timeout, single retry)
 - **Debug Logging** - Error logging only when WP_DEBUG is enabled (excludes sensitive data)
 
 ## Performance & Reliability
@@ -187,6 +190,35 @@ The plugin provides multiple ways to access your editorial calendar:
 - **Optimized Tokens** - Efficient prompts minimize API costs (~62% reduction for outlines)
 - **Model Health Check** - Built-in diagnostics to verify AI provider connectivity
 - **Clean Uninstall** - Complete data cleanup when plugin is removed
+
+## Development
+
+The plugin is organized as a thin WordPress integration layer that delegates to
+focused service classes:
+
+```
+wp-ai-editorial-calendar.php   Bootstrap, hooks, admin UI, and AJAX handlers
+includes/
+  class-aiec-settings.php      Options registration, sanitizers, access policy, rate limit
+  class-aiec-ai-client.php     Provider transport, retry, and error logging
+  class-aiec-prompt-builder.php  Prompt construction and output cleanup
+assets/                        CSS, JS (shared helpers in js/utils.js), and self-hosted fonts
+templates/                     Calendar and settings page markup
+languages/                     Translation files (see languages/README.md)
+tests/smoke-test.php           Stub-WordPress smoke test (no WP install required)
+```
+
+### Running the smoke test
+
+The smoke test stubs the WordPress functions used during bootstrap, loads the
+plugin, and asserts that it boots, registers all its hooks, that every hook and
+sanitize callback resolves to a real method, the rate limit caps correctly, and
+the prompt builders run. It is not a substitute for QA in a real WordPress
+install, but it catches load and wiring regressions quickly:
+
+```bash
+php tests/smoke-test.php
+```
 
 ## License
 

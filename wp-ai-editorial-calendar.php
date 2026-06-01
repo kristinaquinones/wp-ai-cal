@@ -48,6 +48,7 @@ class AI_Editorial_Calendar {
     private function __construct() {
         $this->ai_client = new AIEC_AI_Client();
 
+        add_action('init', [$this, 'load_textdomain']);
         add_action('admin_menu', [$this, 'add_admin_menu']);
         add_action('admin_init', ['AIEC_Settings', 'register']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_assets']);
@@ -70,6 +71,14 @@ class AI_Editorial_Calendar {
         add_action('edit_form_top', [$this, 'add_editor_return_notice_edit_form']);
         add_action('enqueue_block_editor_assets', [$this, 'enqueue_block_editor_assets']);
         add_action('wp_dashboard_setup', [$this, 'add_dashboard_widget']);
+    }
+
+    /**
+     * Load translations. The text domain still differs from the install slug;
+     * that rename is a separate change tracked for any WordPress.org submission.
+     */
+    public function load_textdomain() {
+        load_plugin_textdomain('ai-editorial-calendar', false, dirname(plugin_basename(__FILE__)) . '/languages');
     }
 
     public function add_admin_menu() {

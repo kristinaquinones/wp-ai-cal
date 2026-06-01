@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Security, privacy, and code-quality remediation from a full plugin audit. The
+audit IDs (S1–S6, Q1–Q5) are referenced in commit messages and inline comments.
+
+### Security
+
+- Gate AI suggestions and outline generation on the `publish_posts` capability
+  instead of `edit_posts`, so Contributors can no longer spend the site owner's
+  API credits (S1). **Note:** users with only the Contributor role lose access
+  to the AI features.
+- Add a per-user hourly rate limit (30 requests) to the paid AI endpoints (S1).
+- Stop autoloading the stored API key, so the secret is no longer pulled into
+  memory on every request (S2).
+- Bound the calendar query at 500 posts instead of loading all matching posts,
+  preventing memory exhaustion on busy sites (S5).
+- Escape server-provided URLs and titles when interpolated into HTML attributes
+  in the calendar UI (S6).
+
+### Changed
+
+- Self-host the DM Sans and Space Mono fonts (SIL OFL 1.1) instead of loading
+  them from the Google Fonts CDN, removing an external request (and IP/User-Agent
+  leak) from wp-admin (S3).
+- Reduce the AI request timeout to 20s and the retry budget to a single retry, so
+  a request can no longer block a PHP worker for an extended time (S4).
+- Hide AI spend controls in the calendar, dashboard widget, and post editor for
+  users who aren't permitted to use them.
+
+### Internal
+
+- Consolidate the four provider clients onto a shared request transport (Q1).
+- Extract a shared JavaScript escaping utility, `assets/js/utils.js` (Q2).
+- Split the monolithic plugin class into `AIEC_Settings`, `AIEC_AI_Client`, and
+  `AIEC_Prompt_Builder` service classes under `includes/` (Q3).
+- Load the plugin text domain for translations via `load_plugin_textdomain()` (Q5).
+- Add a stub-WordPress smoke test at `tests/smoke-test.php`.
+
 ## [1.0.0] - 2025-12-08
 
 ### Added
