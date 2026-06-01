@@ -17,18 +17,26 @@ define('AIEC_VERSION', '1.0.0');
 define('AIEC_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AIEC_PLUGIN_URL', plugin_dir_url(__FILE__));
 
+require_once AIEC_PLUGIN_DIR . 'includes/class-aiec-settings.php';
+require_once AIEC_PLUGIN_DIR . 'includes/class-aiec-ai-client.php';
+require_once AIEC_PLUGIN_DIR . 'includes/class-aiec-prompt-builder.php';
+
+/**
+ * Main plugin class: WordPress integration layer.
+ *
+ * Wires hooks, renders admin UI, and handles AJAX. Delegates settings/access
+ * policy to AIEC_Settings, provider calls to AIEC_AI_Client, and prompt text to
+ * AIEC_Prompt_Builder.
+ */
 class AI_Editorial_Calendar {
 
     private static $instance = null;
 
-    // Max paid AI calls a single user may make per rolling hour (see audit S1).
-    const AI_RATE_LIMIT_PER_HOUR = 30;
-
-    // Per-request HTTP timeout for provider calls, in seconds (see audit S4).
-    const AI_REQUEST_TIMEOUT = 20;
-
     // Upper bound on posts loaded into the calendar view at once (see audit S5).
     const CALENDAR_MAX_POSTS = 500;
+
+    /** @var AIEC_AI_Client */
+    private $ai_client;
 
     public static function get_instance() {
         if (null === self::$instance) {
@@ -38,8 +46,10 @@ class AI_Editorial_Calendar {
     }
 
     private function __construct() {
+        $this->ai_client = new AIEC_AI_Client();
+
         add_action('admin_menu', [$this, 'add_admin_menu']);
-        add_action('admin_init', [$this, 'register_settings']);
+        add_action('admin_init', ['AIEC_Settings', 'register']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_assets']);
         add_action('wp_ajax_aiec_get_posts', [$this, 'ajax_get_posts']);
         add_action('wp_ajax_aiec_get_all_posts', [$this, 'ajax_get_all_posts']);
@@ -83,140 +93,24 @@ class AI_Editorial_Calendar {
         );
     }
 
-    public function register_settings() {
-        register_setting('aiec_settings', 'aiec_ai_provider', [
-            'sanitize_callback' => [$this, 'sanitize_provider']
-        ]);
-        register_setting('aiec_settings', 'aiec_api_key', [
-            'sanitize_callback' => [$this, 'sanitize_api_key']
-        ]);
-        register_setting('aiec_settings', 'aiec_site_context', [
-            'sanitize_callback' => [$this, 'sanitize_context_field']
-        ]);
-        register_setting('aiec_settings', 'aiec_tone', [
-            'sanitize_callback' => [$this, 'sanitize_short_field']
-        ]);
-        register_setting('aiec_settings', 'aiec_avoid', [
-            'sanitize_callback' => [$this, 'sanitize_context_field']
-        ]);
-        register_setting('aiec_settings', 'aiec_country', [
-            'sanitize_callback' => [$this, 'sanitize_locale_list']
-        ]);
-        register_setting('aiec_settings', 'aiec_region', [
-            'sanitize_callback' => [$this, 'sanitize_locale_list']
-        ]);
-        register_setting('aiec_settings', 'aiec_culture', [
-            'sanitize_callback' => [$this, 'sanitize_locale_list']
-        ]);
-        register_setting('aiec_settings', 'aiec_belief', [
-            'sanitize_callback' => [$this, 'sanitize_locale_list']
-        ]);
-        register_setting('aiec_settings', 'aiec_focus_type', [
-            'sanitize_callback' => [$this, 'sanitize_short_field']
-        ]);
-
-        // Make sure the stored API key never sits in the autoloaded options cache.
-        $this->ensure_api_key_not_autoloaded();
-    }
-
-    public function sanitize_context_field($value) {
-        $value = sanitize_textarea_field($value);
-        // Cap at 500 characters to keep tokens down
-        return mb_substr($value, 0, 500);
-    }
-
-    public function sanitize_short_field($value) {
-        $value = sanitize_text_field($value);
-        // Cap at 100 characters
-        return mb_substr($value, 0, 100);
-    }
-
-    public function sanitize_locale_list($value) {
-        if (is_array($value)) {
-            $value = array_map('sanitize_text_field', $value);
-            $value = array_filter($value, function($item) {
-                return !empty($item);
-            });
-            $value = array_slice($value, 0, 5); // cap to 5 selections
-            $value = implode(', ', $value);
-        } else {
-            $value = $this->sanitize_short_field($value);
-        }
-        // Cap at 150 chars to avoid overly long strings
-        return mb_substr($value, 0, 150);
-    }
-
-    public function sanitize_provider($value) {
-        $allowed = ['openai', 'anthropic', 'google', 'grok'];
-        return in_array($value, $allowed, true) ? $value : 'openai';
-    }
-
-    public function sanitize_api_key($value) {
-        // If empty, keep existing value
-        if (empty($value)) {
-            return get_option('aiec_api_key');
-        }
-        // Only trim whitespace - don't use sanitize_text_field as it can corrupt API keys
-        return trim($value);
-    }
-
+    /**
+     * API key accessor. Delegates to AIEC_Settings; kept here so templates and
+     * internal callers can use $plugin->get_api_key().
+     *
+     * @return string
+     */
     public function get_api_key() {
-        return get_option('aiec_api_key', '');
+        return AIEC_Settings::get_api_key();
     }
 
     /**
-     * Whether the current user may trigger paid AI calls.
-     *
-     * Gated on publish_posts (Authors/Editors/Admins) rather than edit_posts so
-     * Contributors can't spend the site owner's API credits. See audit S1.
+     * Whether the current user may trigger paid AI calls. Delegates to
+     * AIEC_Settings; kept here for template/internal use.
      *
      * @return bool
      */
     public function user_can_use_ai() {
-        return current_user_can('publish_posts');
-    }
-
-    /**
-     * Per-user hourly throttle for paid AI endpoints.
-     *
-     * Even trusted users shouldn't be able to loop a generation endpoint and run
-     * up an unbounded bill on the owner's provider account, so each user gets a
-     * capped budget per rolling hour. Returns false once the budget is spent.
-     *
-     * @return bool True if the call is allowed, false if the limit is reached.
-     */
-    private function check_ai_rate_limit() {
-        $key = 'aiec_rl_' . get_current_user_id();
-        $count = (int) get_transient($key);
-        if ($count >= self::AI_RATE_LIMIT_PER_HOUR) {
-            return false;
-        }
-        set_transient($key, $count + 1, HOUR_IN_SECONDS);
-        return true;
-    }
-
-    /**
-     * Keep the API key out of the autoloaded options cache.
-     *
-     * The Settings API writes the option on options.php with autoload enabled,
-     * which would pull the secret into memory on every request. We flip it off so
-     * the key is only loaded when actually used. See audit S2.
-     */
-    private function ensure_api_key_not_autoloaded() {
-        if (get_option('aiec_api_key', false) === false) {
-            return; // Nothing stored yet.
-        }
-
-        // WP 6.4+ exposes a direct helper; it no-ops when already correct.
-        if (function_exists('wp_set_option_autoload')) {
-            wp_set_option_autoload('aiec_api_key', false);
-            return;
-        }
-
-        // Fallback for older cores: re-create the option with autoload off.
-        $value = get_option('aiec_api_key');
-        delete_option('aiec_api_key');
-        add_option('aiec_api_key', $value, '', 'no');
+        return AIEC_Settings::user_can_use_ai();
     }
 
     /**
@@ -253,7 +147,7 @@ class AI_Editorial_Calendar {
     private function get_primary_category($post_id) {
         $primary_category = '';
         $categories = get_the_category($post_id);
-        
+
         if (!empty($categories)) {
             // Use first category as primary, or check for Yoast primary category
             $primary_category = $categories[0]->name;
@@ -265,7 +159,7 @@ class AI_Editorial_Calendar {
                 }
             }
         }
-        
+
         return $primary_category;
     }
 
@@ -350,17 +244,17 @@ class AI_Editorial_Calendar {
         // Enqueue for post editor pages
         if (in_array($hook, ['post.php', 'post-new.php'])) {
             global $post;
-            
+
             // Only enqueue for calendar-created posts when the user may spend AI credits
             if ($post && $this->user_can_use_ai() && get_post_meta($post->ID, '_aiec_from_calendar', true)) {
                 wp_enqueue_script('aiec-meta-box', AIEC_PLUGIN_URL . 'assets/js/meta-box.js', ['jquery', 'aiec-utils'], AIEC_VERSION, true);
-                
+
                 $provider = get_option('aiec_ai_provider', 'openai');
                 $provider_name = $this->get_provider_name($provider);
-                
+
                 // Check if post already has content
                 $has_content = !empty($post->post_content);
-                
+
                 wp_localize_script('aiec-meta-box', 'aiecMetaBox', [
                     'ajaxUrl' => admin_url('admin-ajax.php'),
                     'nonce' => wp_create_nonce('aiec_generate_outline'),
@@ -456,7 +350,7 @@ class AI_Editorial_Calendar {
 
     public function add_editor_return_notice() {
         global $pagenow;
-        
+
         if (!current_user_can('edit_posts')) {
             return;
         }
@@ -472,7 +366,7 @@ class AI_Editorial_Calendar {
             // Check if Classic Editor plugin is active and forcing classic editor
             $classic_editor_active = class_exists('Classic_Editor');
             $force_classic = false;
-            
+
             if ($classic_editor_active) {
                 // Check if user or post has classic editor forced
                 global $post;
@@ -482,14 +376,14 @@ class AI_Editorial_Calendar {
                         $force_classic = true;
                     }
                 }
-                
+
                 // Check user preference
                 $user_editor_choice = get_user_option('classic-editor-settings');
                 if (isset($user_editor_choice['editor']) && $user_editor_choice['editor'] === 'classic') {
                     $force_classic = true;
                 }
             }
-            
+
             // Only show PHP notice if Classic Editor is forced
             if (!$force_classic) {
                 return;
@@ -506,24 +400,24 @@ class AI_Editorial_Calendar {
         echo '</a>';
         echo '</div>';
     }
-    
+
     public function add_editor_return_notice_edit_form() {
         // Alternative hook for post editor - fires at top of edit form
         $this->add_editor_return_notice();
     }
-    
+
     public function ajax_dismiss_notice() {
         check_ajax_referer('aiec_nonce', 'nonce');
-        
+
         if (!current_user_can('edit_posts')) {
             wp_send_json_error(__('Unauthorized', 'ai-editorial-calendar'));
         }
-        
+
         $notice_id = sanitize_text_field(wp_unslash($_POST['notice_id'] ?? ''));
         if (empty($notice_id)) {
             wp_send_json_error(__('Invalid notice ID', 'ai-editorial-calendar'));
         }
-        
+
         update_user_meta(get_current_user_id(), $notice_id, '1');
         wp_send_json_success();
     }
@@ -535,14 +429,14 @@ class AI_Editorial_Calendar {
 
         $calendar_url = $this->get_calendar_url();
         $calendar_link = '<a href="' . esc_url($calendar_url) . '" class="button button-small" style="margin-left: 8px;">' . esc_html__('Return to Editorial Calendar', 'ai-editorial-calendar') . '</a>';
-        
+
         // Add the link after the existing preview/permalink HTML
         return $return . $calendar_link;
     }
 
     public function add_ai_suggestion_meta_box() {
         global $post;
-        
+
         // Only show meta box if this post was created from the AI Editorial Calendar
         // This includes posts created from both calendar view and list view, as both
         // use the same ajax_create_draft() method which sets the _aiec_from_calendar meta
@@ -562,7 +456,7 @@ class AI_Editorial_Calendar {
 
     public function render_ai_suggestion_meta_box($post) {
         $suggestion = get_post_meta($post->ID, '_aiec_ai_suggestion', true);
-        
+
         if (empty($suggestion)) {
             echo '<p style="color: #666; font-style: italic;">' . esc_html__('No AI suggestion available for this post.', 'ai-editorial-calendar') . '</p>';
             return;
@@ -627,15 +521,15 @@ class AI_Editorial_Calendar {
             echo esc_html__('Get AI Suggestions', 'ai-editorial-calendar');
             echo '</a>';
         }
-        
+
         // View Calendar button
         echo '<a href="' . esc_url($calendar_url) . '" class="button button-secondary aiec-dashboard-btn" style="width: 100%; text-align: center; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">';
         echo '<span class="dashicons dashicons-calendar-alt" style="font-size: 16px; width: 16px; height: 16px; line-height: 1;"></span>';
         echo esc_html__('View Calendar', 'ai-editorial-calendar');
         echo '</a>';
-        
+
         echo '</div>';
-        
+
         if (!$has_api_key) {
             echo '<p style="margin-top: 15px; padding: 10px; background: #fff3cd; border-left: 4px solid #ffc107; color: #856404;">';
             echo '<strong>' . esc_html__('Tip:', 'ai-editorial-calendar') . '</strong> ';
@@ -646,7 +540,7 @@ class AI_Editorial_Calendar {
             );
             echo '</p>';
         }
-        
+
         echo '</div>';
     }
 
@@ -871,7 +765,7 @@ class AI_Editorial_Calendar {
             wp_send_json_error(__('You do not have permission to edit this post', 'ai-editorial-calendar'));
         }
 
-        if (!$this->check_ai_rate_limit()) {
+        if (!AIEC_Settings::check_ai_rate_limit()) {
             wp_send_json_error(__('Rate limit reached. Please wait before generating more outlines.', 'ai-editorial-calendar'));
         }
 
@@ -896,27 +790,27 @@ class AI_Editorial_Calendar {
         $tone = get_option('aiec_tone', '');
 
         // Build the outline generation prompt
-        $prompt = $this->build_outline_prompt($post->post_title, $suggestion, $context, $tone);
+        $prompt = AIEC_Prompt_Builder::build_outline($post->post_title, $suggestion, $context, $tone);
 
         // Call AI API to generate outline (1500 tokens should be sufficient for detailed outline)
-        $outline = $this->call_ai_api($provider, $api_key, $prompt, 1500);
+        $outline = $this->ai_client->generate($provider, $api_key, $prompt, 1500);
 
         if (is_wp_error($outline)) {
             wp_send_json_error($outline->get_error_message());
         }
 
         // Clean the outline: strip HTML, markdown, and extraneous characters
-        $outline = $this->clean_outline($outline);
+        $outline = AIEC_Prompt_Builder::clean_outline($outline);
 
         // Sanitize outline before saving (strip any remaining HTML/scripts)
         $outline = wp_kses_post($outline);
-        
+
         // Update post content with the generated outline
         $updated = wp_update_post([
             'ID' => $post_id,
             'post_content' => $outline,
         ], true);
-        
+
         if (is_wp_error($updated)) {
             wp_send_json_error($updated->get_error_message());
         }
@@ -927,77 +821,6 @@ class AI_Editorial_Calendar {
         ]);
     }
 
-    private function build_outline_prompt($title, $suggestion, $context, $tone) {
-        $prompt = "Create a writing guide for this blog post:\n\n";
-        $prompt .= "Title: " . sanitize_text_field($title) . "\n";
-        $prompt .= "Description: " . sanitize_textarea_field($suggestion) . "\n";
-
-        if ($context) {
-            $prompt .= "Context: " . sanitize_textarea_field($context) . "\n";
-        }
-
-        if ($tone) {
-            $prompt .= "Tone: " . sanitize_text_field($tone) . "\n";
-        }
-
-        $prompt .= "\nFormat: Plain text only. Use markdown-style headings (## for main sections, ### for subsections).\n";
-        $prompt .= "Structure: Introduction, 3 main sections with 2-3 bullet points each, Conclusion with CTA.\n\n";
-        $prompt .= "- Writing instructions (e.g., 'Write an introduction that hooks the reader by...')\n";
-        $prompt .= "- Content guidance (e.g., 'Introduction: Focus on explaining why this topic matters to the reader...')\n";
-        $prompt .= "Each section should guide the author on:\n";
-        $prompt .= "- What to write about (the content focus)\n";
-        $prompt .= "- How to approach it (the writing style/angle)\n";
-        $prompt .= "- What to accomplish (the goal of that section)\n\n";
-        $prompt .= "Make headings action-oriented and guidance specific/actionable.\n";
-        $prompt .= "Do NOT repeat the title or description in your output. Start directly with the Introduction section heading (## Introduction). Output only the writing guide, no explanations or metadata.";
-
-        return $prompt;
-    }
-
-    private function clean_outline($outline) {
-        // Remove HTML tags
-        $outline = strip_tags($outline);
-        
-        // Remove markdown code blocks if present
-        $outline = preg_replace('/```[\s\S]*?```/', '', $outline);
-        
-        // Remove markdown formatting characters that might interfere
-        $outline = preg_replace('/\*\*(.*?)\*\*/', '$1', $outline); // Bold
-        $outline = preg_replace('/\*(.*?)\*/', '$1', $outline); // Italic
-        $outline = preg_replace('/`(.*?)`/', '$1', $outline); // Inline code
-        
-        // Clean up extra whitespace
-        $outline = preg_replace('/\n{3,}/', "\n\n", $outline); // Max 2 consecutive newlines
-        $outline = preg_replace('/[ \t]+/', ' ', $outline); // Multiple spaces to single space
-        
-        // Remove common AI response prefixes/suffixes
-        $outline = preg_replace('/^(Here\'s|Here is|Below is|I\'ll create|I\'ve created|This outline|The outline|This writing guide|The writing guide)[\s\S]*?:\s*/i', '', $outline);
-        $outline = preg_replace('/\n*(Note:|Remember:|Tip:)[\s\S]*$/i', '', $outline);
-        
-        // Trim whitespace
-        $outline = trim($outline);
-        
-        // Ensure it starts with content, not metadata
-        $lines = explode("\n", $outline);
-        $start_index = 0;
-        foreach ($lines as $i => $line) {
-            $line = trim($line);
-            // Skip empty lines and common AI prefixes at start
-            if (empty($line) || preg_match('/^(Title|Description|Context|Tone|Format|Structure|Writing guide|Guide):/i', $line)) {
-                $start_index = $i + 1;
-                continue;
-            }
-            // Found actual content (headings or text)
-            if (preg_match('/^#|^[A-Z]|^[a-z]|^Write|^Focus|^Explain|^Describe/', $line)) {
-                $start_index = $i;
-                break;
-            }
-        }
-        $outline = implode("\n", array_slice($lines, $start_index));
-        
-        return trim($outline);
-    }
-
     public function ajax_get_suggestions() {
         check_ajax_referer('aiec_nonce', 'nonce');
 
@@ -1005,7 +828,7 @@ class AI_Editorial_Calendar {
             wp_send_json_error(__('You do not have permission to use AI features.', 'ai-editorial-calendar'));
         }
 
-        if (!$this->check_ai_rate_limit()) {
+        if (!AIEC_Settings::check_ai_rate_limit()) {
             wp_send_json_error(__('Rate limit reached. Please wait before requesting more AI suggestions.', 'ai-editorial-calendar'));
         }
 
@@ -1031,409 +854,15 @@ class AI_Editorial_Calendar {
             fn($title) => !empty($title) && stripos($title, 'Hello World') === false
         );
 
-        $prompt = $this->build_prompt($context, $tone, $avoid, $recent_titles, $date);
+        $prompt = AIEC_Prompt_Builder::build_suggestions($context, $tone, $avoid, $recent_titles, $date);
 
-        $suggestions = $this->call_ai_api($provider, $api_key, $prompt);
+        $suggestions = $this->ai_client->generate($provider, $api_key, $prompt);
 
         if (is_wp_error($suggestions)) {
             wp_send_json_error($suggestions->get_error_message());
         }
 
         wp_send_json_success($suggestions);
-    }
-
-    private function build_prompt($context, $tone, $avoid, $recent_titles, $date) {
-        // Sanitize date
-        $date = sanitize_text_field($date);
-        
-        // Locale/context options
-        $country = sanitize_text_field(get_option('aiec_country', ''));
-        $region = sanitize_text_field(get_option('aiec_region', ''));
-        $culture = sanitize_text_field(get_option('aiec_culture', ''));
-        $belief = sanitize_text_field(get_option('aiec_belief', ''));
-        $focus_type = sanitize_text_field(get_option('aiec_focus_type', 'mix')); // trends | evergreen | mix
-        
-        // Parse and format date for better context
-        $date_obj = DateTime::createFromFormat('Y-m-d', $date);
-        $formatted_date = $date;
-        $date_context = '';
-        $season = '';
-        if ($date_obj) {
-            $today = new DateTime();
-            $diff = $today->diff($date_obj);
-            $days_diff = (int) $diff->format('%r%a');
-            
-            if ($days_diff === 0) {
-                $date_context = 'today';
-            } elseif ($days_diff === 1) {
-                $date_context = 'tomorrow';
-            } elseif ($days_diff > 1 && $days_diff <= 7) {
-                $date_context = sprintf('in %d days', $days_diff);
-            } elseif ($days_diff < 0 && $days_diff >= -7) {
-                $date_context = sprintf('%d days ago', abs($days_diff));
-            } else {
-                $date_context = 'on ' . $date_obj->format('F j, Y');
-            }
-            
-            $formatted_date = $date_obj->format('l, F j, Y');
-            
-            // Derive a simple season from month (Northern Hemisphere approximation)
-            $month = (int) $date_obj->format('n');
-            if (in_array($month, [12, 1, 2], true)) {
-                $season = 'Winter';
-            } elseif (in_array($month, [3, 4, 5], true)) {
-                $season = 'Spring';
-            } elseif (in_array($month, [6, 7, 8], true)) {
-                $season = 'Summer';
-            } else {
-                $season = 'Autumn';
-            }
-        }
-        
-        // Sanitize recent titles and provide context
-        $sanitized_titles = array_map(function($title) {
-            return sanitize_text_field($title);
-        }, array_slice(array_values($recent_titles), 0, 5));
-        
-        $titles_list = '';
-        $recent_context = '';
-        if (!empty($sanitized_titles)) {
-            $titles_list = implode(', ', $sanitized_titles);
-            $count = count($sanitized_titles);
-            $recent_context = sprintf(
-                ' The site has recently published these %d post%s: %s. Use these to understand the content themes and avoid duplication, but suggest fresh angles or complementary topics.',
-                $count,
-                $count > 1 ? 's' : '',
-                $titles_list
-            );
-        }
-
-        // Build prompt with sanitized inputs (context, tone, avoid are already sanitized via settings)
-        $prompt = sprintf(
-            'Suggest 3 unique blog post ideas for %s (%s).',
-            $formatted_date,
-            $date_context
-        );
-
-        if ($context) {
-            $prompt .= sprintf(' Site context: %s.', $context);
-        }
-        
-        if ($country || $region || $culture) {
-            $locale_parts = array_slice(array_filter([$country, $region, $culture]), 0, 5);
-            $prompt .= ' Locale: ' . implode(', ', $locale_parts) . '.';
-        }
-        if ($belief) {
-            $belief_list = array_slice(array_filter(array_map('trim', explode(',', $belief))), 0, 5);
-            if (!empty($belief_list)) {
-                $prompt .= ' Belief/Cultural context: ' . implode(', ', $belief_list) . '.';
-            }
-        }
-
-        if ($tone) {
-            $prompt .= sprintf(' Writing tone: %s.', $tone);
-        }
-        if ($recent_context) {
-            $prompt .= $recent_context;
-        }
-        if ($avoid) {
-            $prompt .= sprintf(' Avoid these topics/approaches: %s.', $avoid);
-        }
-
-        if ($season) {
-            $prompt .= sprintf(' Season: %s. Consider events/holidays within 4 weeks of the target date.', $season);
-        }
-
-        // Trends vs Evergreen focus
-        if ($focus_type === 'trends') {
-            $prompt .= ' Emphasize timely/trending topics tied to the target date and season.';
-        } elseif ($focus_type === 'evergreen') {
-            $prompt .= ' Emphasize evergreen topics that remain relevant year-round.';
-        } else {
-            $prompt .= ' Provide a balanced mix of timely/trending and evergreen angles.';
-        }
-
-        // Diversity and timeliness instructions (concise, no repeats)
-        $prompt .= ' Return 3 suggestions: how-to; list/roundup; opinion/analysis. Avoid duplicates of recent titles; one-line Descs with a concrete hook and timely angle if relevant. Format: Title: X | Desc: Y (one line, no markup).';
-
-        return $prompt;
-    }
-
-    private function call_ai_api($provider, $api_key, $prompt, $max_tokens = 500) {
-        // Validate and sanitize inputs
-        if (empty($api_key)) {
-            return new WP_Error('api_error', __('API key is required', 'ai-editorial-calendar'));
-        }
-
-        if (empty($prompt)) {
-            return new WP_Error('api_error', __('Prompt cannot be empty', 'ai-editorial-calendar'));
-        }
-
-        // Validate max_tokens to prevent abuse
-        $max_tokens = $this->validate_max_tokens($max_tokens);
-
-        // Define API call function for retry logic
-        $api_call = function() use ($provider, $api_key, $prompt, $max_tokens) {
-        switch ($provider) {
-            case 'openai':
-                    return $this->call_openai($api_key, $prompt, $max_tokens);
-            case 'anthropic':
-                    return $this->call_anthropic($api_key, $prompt, $max_tokens);
-            case 'google':
-                    return $this->call_google($api_key, $prompt, $max_tokens);
-                case 'grok':
-                    return $this->call_grok($api_key, $prompt, $max_tokens);
-            default:
-                return new WP_Error('invalid_provider', __('Invalid AI provider', 'ai-editorial-calendar'));
-            }
-        };
-
-        // Make API call with retry logic
-        $response = $this->call_api_with_retry($api_call);
-
-        // Log errors for debugging (only if WP_DEBUG is enabled)
-        if (is_wp_error($response)) {
-            $this->log_api_error($provider, $response, [
-                'prompt_length' => strlen($prompt),
-                'max_tokens' => $max_tokens,
-            ]);
-        }
-
-        return $response;
-    }
-
-    /**
-     * Shared transport for every provider.
-     *
-     * Does the POST and all the common envelope handling (transport errors,
-     * non-200 status, malformed JSON, provider error objects), then hands the
-     * decoded body to a provider-specific extractor that pulls out the text.
-     *
-     * @param string   $url     Endpoint URL.
-     * @param array    $headers Request headers, including auth.
-     * @param array    $body    Request payload (JSON-encoded here).
-     * @param callable $extract Receives the decoded body array, returns the text.
-     * @return string|WP_Error
-     */
-    private function request_completion($url, $headers, $body, $extract) {
-        $response = wp_remote_post($url, [
-            'headers' => $headers,
-            'body' => wp_json_encode($body),
-            'timeout' => self::AI_REQUEST_TIMEOUT,
-        ]);
-
-        if (is_wp_error($response)) {
-            return $response;
-        }
-
-        $decoded = json_decode(wp_remote_retrieve_body($response), true);
-        $response_code = wp_remote_retrieve_response_code($response);
-
-        if ($response_code !== 200) {
-            $error_message = __('API request failed with status code: ', 'ai-editorial-calendar') . $response_code;
-            if (isset($decoded['error']['message'])) {
-                $error_message = sanitize_text_field($decoded['error']['message']);
-            }
-            return new WP_Error('api_error', $error_message);
-        }
-
-        if (!is_array($decoded)) {
-            return new WP_Error('api_error', __('Invalid API response format', 'ai-editorial-calendar'));
-        }
-
-        if (isset($decoded['error'])) {
-            $error_message = isset($decoded['error']['message']) ? sanitize_text_field($decoded['error']['message']) : __('API error', 'ai-editorial-calendar');
-            return new WP_Error('api_error', $error_message);
-        }
-
-        $content = call_user_func($extract, $decoded);
-        if (empty($content)) {
-            return new WP_Error('api_error', __('Empty response from API', 'ai-editorial-calendar'));
-        }
-
-        return $content;
-    }
-
-    /**
-     * OpenAI-compatible chat completions. OpenAI and xAI Grok share this schema,
-     * so they differ only by endpoint and model name.
-     */
-    private function call_openai_compatible($url, $api_key, $model, $prompt, $max_tokens) {
-        return $this->request_completion(
-            $url,
-            [
-                'Authorization' => 'Bearer ' . $api_key,
-                'Content-Type' => 'application/json',
-            ],
-            [
-                'model' => $model,
-                'messages' => [
-                    ['role' => 'user', 'content' => $prompt],
-                ],
-                'max_tokens' => $max_tokens,
-            ],
-            function ($body) {
-                return $body['choices'][0]['message']['content'] ?? '';
-            }
-        );
-    }
-
-    private function call_openai($api_key, $prompt, $max_tokens = 500) {
-        return $this->call_openai_compatible(
-            'https://api.openai.com/v1/chat/completions',
-            $api_key,
-            'gpt-4o-mini', // Cost-effective OpenAI model
-            $prompt,
-            $max_tokens
-        );
-    }
-
-    private function call_grok($api_key, $prompt, $max_tokens = 500) {
-        return $this->call_openai_compatible(
-            'https://api.x.ai/v1/chat/completions',
-            $api_key,
-            'grok-2', // xAI Grok model
-            $prompt,
-            $max_tokens
-        );
-    }
-
-    private function call_anthropic($api_key, $prompt, $max_tokens = 500) {
-        return $this->request_completion(
-            'https://api.anthropic.com/v1/messages',
-            [
-                'x-api-key' => $api_key,
-                'Content-Type' => 'application/json',
-                'anthropic-version' => '2023-06-01',
-            ],
-            [
-                'model' => 'claude-3-5-haiku-latest',
-                'max_tokens' => $max_tokens,
-                'messages' => [
-                    ['role' => 'user', 'content' => $prompt],
-                ],
-            ],
-            function ($body) {
-                return $body['content'][0]['text'] ?? '';
-            }
-        );
-    }
-
-    private function call_google($api_key, $prompt, $max_tokens = 500) {
-        // Gemini ignores max_tokens here (no maxOutputTokens set), matching prior behavior.
-        unset($max_tokens);
-        return $this->request_completion(
-            'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent',
-            [
-                'Content-Type' => 'application/json',
-                'x-goog-api-key' => $api_key,
-            ],
-            [
-                'contents' => [
-                    ['parts' => [['text' => $prompt]]],
-                ],
-            ],
-            function ($body) {
-                return $body['candidates'][0]['content']['parts'][0]['text'] ?? '';
-            }
-        );
-    }
-
-    /**
-     * Validate max_tokens parameter to prevent abuse
-     *
-     * @param int $max_tokens Requested max tokens
-     * @return int Validated max tokens (capped at 2000)
-     */
-    private function validate_max_tokens($max_tokens) {
-        $max_tokens = absint($max_tokens);
-        // Cap at 2000 to prevent excessive API costs
-        return min($max_tokens, 2000);
-    }
-
-    /**
-     * Log API errors for debugging (without sensitive data)
-     *
-     * @param string $provider Provider name
-     * @param WP_Error|string $error Error object or message
-     * @param array $context Additional context (without sensitive data)
-     */
-    private function log_api_error($provider, $error, $context = []) {
-        if (!defined('WP_DEBUG') || !WP_DEBUG) {
-            return; // Only log if debug mode is enabled
-        }
-
-        $error_message = is_wp_error($error) ? $error->get_error_message() : $error;
-        $log_data = [
-            'provider' => $provider,
-            'error' => $error_message,
-            'context' => $context,
-            'timestamp' => current_time('mysql'),
-        ];
-
-        error_log('AI Editorial Calendar API Error: ' . wp_json_encode($log_data));
-    }
-
-    /**
-     * Make API call with retry logic for transient failures
-     *
-     * @param callable $api_call Function that makes the API call
-     * @param int $max_retries Maximum number of retry attempts
-     * @param int $retry_delay Delay between retries in seconds (note: uses sleep which blocks)
-     * @return mixed API response or WP_Error
-     */
-    private function call_api_with_retry($api_call, $max_retries = 1, $retry_delay = 1) {
-        $attempt = 0;
-        $last_error = null;
-
-        while ($attempt <= $max_retries) {
-            $response = call_user_func($api_call);
-
-            // If successful, return response
-            if (!is_wp_error($response)) {
-                return $response;
-            }
-
-            $last_error = $response;
-            $error_code = $response->get_error_code();
-
-            // Only retry on transient errors (network issues, rate limits, server errors)
-            $transient_errors = [
-                'http_request_failed',
-                'api_error', // Check if it's a 429, 500, 502, 503, 504
-            ];
-
-            // Check if error message indicates a transient error
-            $error_message = $response->get_error_message();
-            $is_transient = false;
-
-            // Check for rate limiting (429)
-            if (strpos($error_message, '429') !== false || strpos($error_message, 'rate limit') !== false) {
-                $is_transient = true;
-                $retry_delay = 3; // Longer delay for rate limits
-            }
-
-            // Check for server errors (5xx)
-            if (preg_match('/\b(50[0-9]|502|503|504)\b/', $error_message)) {
-                $is_transient = true;
-                $retry_delay = 2; // Moderate delay for server errors
-            }
-
-            // Check for network errors
-            if (in_array($error_code, $transient_errors, true) || $is_transient) {
-                $attempt++;
-
-                if ($attempt <= $max_retries) {
-                    sleep($retry_delay);
-                    continue;
-                }
-            }
-
-            // Non-transient error or max retries reached
-            break;
-        }
-
-        return $last_error;
     }
 
     /**
@@ -1462,7 +891,7 @@ class AI_Editorial_Calendar {
 
         // Make a minimal test call to check model availability
         $test_prompt = 'Test';
-        $test_response = $this->call_ai_api($provider, $api_key, $test_prompt, 10);
+        $test_response = $this->ai_client->generate($provider, $api_key, $test_prompt, 10);
 
         if (is_wp_error($test_response)) {
             $error_code = $test_response->get_error_code();
