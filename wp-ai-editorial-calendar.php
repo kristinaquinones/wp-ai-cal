@@ -24,6 +24,12 @@ class AI_Editorial_Calendar {
     // Max paid AI calls a single user may make per rolling hour (see audit S1).
     const AI_RATE_LIMIT_PER_HOUR = 30;
 
+    // Per-request HTTP timeout for provider calls, in seconds (see audit S4).
+    const AI_REQUEST_TIMEOUT = 20;
+
+    // Upper bound on posts loaded into the calendar view at once (see audit S5).
+    const CALENDAR_MAX_POSTS = 500;
+
     public static function get_instance() {
         if (null === self::$instance) {
             self::$instance = new self();
@@ -685,7 +691,8 @@ class AI_Editorial_Calendar {
                     'inclusive' => true,
                 ]
             ],
-            'posts_per_page' => -1,
+            // Bounded instead of -1 so a busy month can't exhaust memory (see audit S5).
+            'posts_per_page' => self::CALENDAR_MAX_POSTS,
         ]);
 
         $events = array_map([$this, 'build_post_event'], $posts);
@@ -1205,7 +1212,7 @@ class AI_Editorial_Calendar {
                 ],
                 'max_tokens' => $max_tokens,
             ]),
-            'timeout' => 30,
+            'timeout' => self::AI_REQUEST_TIMEOUT,
         ]);
 
         if (is_wp_error($response)) {
@@ -1259,7 +1266,7 @@ class AI_Editorial_Calendar {
                     ['role' => 'user', 'content' => $prompt]
                 ],
             ]),
-            'timeout' => 30,
+            'timeout' => self::AI_REQUEST_TIMEOUT,
         ]);
 
         if (is_wp_error($response)) {
@@ -1310,7 +1317,7 @@ class AI_Editorial_Calendar {
                     ['parts' => [['text' => $prompt]]]
                 ],
             ]),
-            'timeout' => 30,
+            'timeout' => self::AI_REQUEST_TIMEOUT,
         ]);
 
         if (is_wp_error($response)) {
@@ -1363,7 +1370,7 @@ class AI_Editorial_Calendar {
                 ],
                 'max_tokens' => $max_tokens,
             ]),
-            'timeout' => 30,
+            'timeout' => self::AI_REQUEST_TIMEOUT,
         ]);
 
         if (is_wp_error($response)) {
@@ -1446,7 +1453,7 @@ class AI_Editorial_Calendar {
      * @param int $retry_delay Delay between retries in seconds (note: uses sleep which blocks)
      * @return mixed API response or WP_Error
      */
-    private function call_api_with_retry($api_call, $max_retries = 2, $retry_delay = 1) {
+    private function call_api_with_retry($api_call, $max_retries = 1, $retry_delay = 1) {
         $attempt = 0;
         $last_error = null;
 
