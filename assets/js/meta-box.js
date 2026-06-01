@@ -47,12 +47,8 @@
                         // Gutenberg editor - convert markdown-style headings to HTML blocks
                         if (window.wp && window.wp.data && window.wp.blocks) {
                             try {
-                                // Escape HTML function to prevent XSS
-                                const escapeHtml = function(text) {
-                                    const div = document.createElement('div');
-                                    div.textContent = text;
-                                    return div.innerHTML;
-                                };
+                                // Shared escaper to prevent XSS (see utils.js)
+                                const escapeHtml = window.aiecUtils.escapeHtml;
 
                                 // Convert markdown to HTML for block parsing
                                 let htmlContent = outline
@@ -121,13 +117,8 @@
                             scrollTop: $message.offset().top - 100
                         }, 300);
                     } else {
-                        // Show error message
-                        // Escape error message to prevent XSS
-                        const escapeHtml = function(text) {
-                            const div = document.createElement('div');
-                            div.textContent = text;
-                            return div.innerHTML;
-                        };
+                        // Show error message (escape to prevent XSS, see utils.js)
+                        const escapeHtml = window.aiecUtils.escapeHtml;
                         const errorMsg = response.data ? escapeHtml(response.data) : '';
                         $message
                             .addClass('notice notice-error')
@@ -138,13 +129,9 @@
                 error: function(xhr, status, error) {
                     $spinner.css('visibility', 'hidden');
                     $btn.prop('disabled', false);
-                    
-                    // Escape error message to prevent XSS
-                    const escapeHtml = function(text) {
-                        const div = document.createElement('div');
-                        div.textContent = text;
-                        return div.innerHTML;
-                    };
+
+                    // Escape error message to prevent XSS (see utils.js)
+                    const escapeHtml = window.aiecUtils.escapeHtml;
                     const errorMsg = error ? escapeHtml(error) : '';
                     $message
                         .addClass('notice notice-error')

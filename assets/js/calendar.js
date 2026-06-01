@@ -524,21 +524,13 @@
         },
 
         escapeHtml: function(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+            return window.aiecUtils.escapeHtml(text);
         },
 
-        // escapeHtml leaves quotes intact, which is unsafe inside a double-quoted
-        // attribute. Use this for any value interpolated into an attribute (URLs,
+        // Attribute-safe escaping for values interpolated into attributes (URLs,
         // titles in data-* attributes). See audit S6.
         escapeAttr: function(text) {
-            return String(text == null ? '' : text)
-                .replace(/&/g, '&amp;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;');
+            return window.aiecUtils.escapeAttr(text);
         },
 
         openModal: function(date) {

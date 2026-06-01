@@ -307,13 +307,16 @@ class AI_Editorial_Calendar {
     }
 
     public function enqueue_assets($hook) {
+        // Shared helper script; auto-enqueued wherever it's listed as a dependency.
+        wp_register_script('aiec-utils', AIEC_PLUGIN_URL . 'assets/js/utils.js', [], AIEC_VERSION, true);
+
         // Enqueue for calendar and settings pages
         if (strpos($hook, 'ai-editorial-calendar') !== false || strpos($hook, 'aiec-settings') !== false) {
             // Self-hosted fonts, no external CDN call from wp-admin (see audit S3)
             wp_enqueue_style('aiec-fonts', AIEC_PLUGIN_URL . 'assets/css/fonts.css', [], AIEC_VERSION);
             wp_enqueue_style('dashicons');
             wp_enqueue_style('aiec-styles', AIEC_PLUGIN_URL . 'assets/css/calendar.css', ['aiec-fonts', 'dashicons'], AIEC_VERSION);
-            wp_enqueue_script('aiec-calendar', AIEC_PLUGIN_URL . 'assets/js/calendar.js', ['jquery'], AIEC_VERSION, true);
+            wp_enqueue_script('aiec-calendar', AIEC_PLUGIN_URL . 'assets/js/calendar.js', ['jquery', 'aiec-utils'], AIEC_VERSION, true);
 
             wp_localize_script('aiec-calendar', 'aiecData', [
                 'ajaxUrl' => admin_url('admin-ajax.php'),
@@ -350,7 +353,7 @@ class AI_Editorial_Calendar {
             
             // Only enqueue for calendar-created posts when the user may spend AI credits
             if ($post && $this->user_can_use_ai() && get_post_meta($post->ID, '_aiec_from_calendar', true)) {
-                wp_enqueue_script('aiec-meta-box', AIEC_PLUGIN_URL . 'assets/js/meta-box.js', ['jquery'], AIEC_VERSION, true);
+                wp_enqueue_script('aiec-meta-box', AIEC_PLUGIN_URL . 'assets/js/meta-box.js', ['jquery', 'aiec-utils'], AIEC_VERSION, true);
                 
                 $provider = get_option('aiec_ai_provider', 'openai');
                 $provider_name = $this->get_provider_name($provider);
@@ -1199,19 +1202,23 @@ class AI_Editorial_Calendar {
         return $response;
     }
 
-    private function call_openai($api_key, $prompt, $max_tokens = 500) {
-        $response = wp_remote_post('https://api.openai.com/v1/chat/completions', [
-            'headers' => [
-                'Authorization' => 'Bearer ' . $api_key,
-                'Content-Type' => 'application/json',
-            ],
-            'body' => json_encode([
-                'model' => 'gpt-4o-mini', // Cost-effective OpenAI model
-                'messages' => [
-                    ['role' => 'user', 'content' => $prompt]
-                ],
-                'max_tokens' => $max_tokens,
-            ]),
+    /**
+     * Shared transport for every provider.
+     *
+     * Does the POST and all the common envelope handling (transport errors,
+     * non-200 status, malformed JSON, provider error objects), then hands the
+     * decoded body to a provider-specific extractor that pulls out the text.
+     *
+     * @param string   $url     Endpoint URL.
+     * @param array    $headers Request headers, including auth.
+     * @param array    $body    Request payload (JSON-encoded here).
+     * @param callable $extract Receives the decoded body array, returns the text.
+     * @return string|WP_Error
+     */
+    private function request_completion($url, $headers, $body, $extract) {
+        $response = wp_remote_post($url, [
+            'headers' => $headers,
+            'body' => wp_json_encode($body),
             'timeout' => self::AI_REQUEST_TIMEOUT,
         ]);
 
@@ -1219,32 +1226,27 @@ class AI_Editorial_Calendar {
             return $response;
         }
 
+        $decoded = json_decode(wp_remote_retrieve_body($response), true);
         $response_code = wp_remote_retrieve_response_code($response);
+
         if ($response_code !== 200) {
             $error_message = __('API request failed with status code: ', 'ai-editorial-calendar') . $response_code;
-        $body = json_decode(wp_remote_retrieve_body($response), true);
-            if (isset($body['error']['message'])) {
-                $error_message = sanitize_text_field($body['error']['message']);
+            if (isset($decoded['error']['message'])) {
+                $error_message = sanitize_text_field($decoded['error']['message']);
             }
             return new WP_Error('api_error', $error_message);
         }
 
-        $body = json_decode(wp_remote_retrieve_body($response), true);
-
-        if (!is_array($body)) {
+        if (!is_array($decoded)) {
             return new WP_Error('api_error', __('Invalid API response format', 'ai-editorial-calendar'));
         }
 
-        if (isset($body['error'])) {
-            $error_message = isset($body['error']['message']) ? sanitize_text_field($body['error']['message']) : __('API error', 'ai-editorial-calendar');
+        if (isset($decoded['error'])) {
+            $error_message = isset($decoded['error']['message']) ? sanitize_text_field($decoded['error']['message']) : __('API error', 'ai-editorial-calendar');
             return new WP_Error('api_error', $error_message);
         }
 
-        if (!isset($body['choices']) || !is_array($body['choices']) || empty($body['choices'])) {
-            return new WP_Error('api_error', __('Invalid response structure from API', 'ai-editorial-calendar'));
-        }
-
-        $content = $body['choices'][0]['message']['content'] ?? '';
+        $content = call_user_func($extract, $decoded);
         if (empty($content)) {
             return new WP_Error('api_error', __('Empty response from API', 'ai-editorial-calendar'));
         }
@@ -1252,162 +1254,89 @@ class AI_Editorial_Calendar {
         return $content;
     }
 
+    /**
+     * OpenAI-compatible chat completions. OpenAI and xAI Grok share this schema,
+     * so they differ only by endpoint and model name.
+     */
+    private function call_openai_compatible($url, $api_key, $model, $prompt, $max_tokens) {
+        return $this->request_completion(
+            $url,
+            [
+                'Authorization' => 'Bearer ' . $api_key,
+                'Content-Type' => 'application/json',
+            ],
+            [
+                'model' => $model,
+                'messages' => [
+                    ['role' => 'user', 'content' => $prompt],
+                ],
+                'max_tokens' => $max_tokens,
+            ],
+            function ($body) {
+                return $body['choices'][0]['message']['content'] ?? '';
+            }
+        );
+    }
+
+    private function call_openai($api_key, $prompt, $max_tokens = 500) {
+        return $this->call_openai_compatible(
+            'https://api.openai.com/v1/chat/completions',
+            $api_key,
+            'gpt-4o-mini', // Cost-effective OpenAI model
+            $prompt,
+            $max_tokens
+        );
+    }
+
+    private function call_grok($api_key, $prompt, $max_tokens = 500) {
+        return $this->call_openai_compatible(
+            'https://api.x.ai/v1/chat/completions',
+            $api_key,
+            'grok-2', // xAI Grok model
+            $prompt,
+            $max_tokens
+        );
+    }
+
     private function call_anthropic($api_key, $prompt, $max_tokens = 500) {
-        $response = wp_remote_post('https://api.anthropic.com/v1/messages', [
-            'headers' => [
+        return $this->request_completion(
+            'https://api.anthropic.com/v1/messages',
+            [
                 'x-api-key' => $api_key,
                 'Content-Type' => 'application/json',
                 'anthropic-version' => '2023-06-01',
             ],
-            'body' => json_encode([
+            [
                 'model' => 'claude-3-5-haiku-latest',
                 'max_tokens' => $max_tokens,
                 'messages' => [
-                    ['role' => 'user', 'content' => $prompt]
+                    ['role' => 'user', 'content' => $prompt],
                 ],
-            ]),
-            'timeout' => self::AI_REQUEST_TIMEOUT,
-        ]);
-
-        if (is_wp_error($response)) {
-            return $response;
-        }
-
-        $response_code = wp_remote_retrieve_response_code($response);
-        if ($response_code !== 200) {
-            $error_message = __('API request failed with status code: ', 'ai-editorial-calendar') . $response_code;
-        $body = json_decode(wp_remote_retrieve_body($response), true);
-            if (isset($body['error']['message'])) {
-                $error_message = sanitize_text_field($body['error']['message']);
+            ],
+            function ($body) {
+                return $body['content'][0]['text'] ?? '';
             }
-            return new WP_Error('api_error', $error_message);
-        }
-
-        $body = json_decode(wp_remote_retrieve_body($response), true);
-
-        if (!is_array($body)) {
-            return new WP_Error('api_error', __('Invalid API response format', 'ai-editorial-calendar'));
-        }
-
-        if (isset($body['error'])) {
-            $error_message = isset($body['error']['message']) ? sanitize_text_field($body['error']['message']) : __('API error', 'ai-editorial-calendar');
-            return new WP_Error('api_error', $error_message);
-        }
-
-        if (!isset($body['content']) || !is_array($body['content']) || empty($body['content'])) {
-            return new WP_Error('api_error', __('Invalid response structure from API', 'ai-editorial-calendar'));
-        }
-
-        $content = $body['content'][0]['text'] ?? '';
-        if (empty($content)) {
-            return new WP_Error('api_error', __('Empty response from API', 'ai-editorial-calendar'));
-        }
-
-        return $content;
+        );
     }
 
     private function call_google($api_key, $prompt, $max_tokens = 500) {
-        $response = wp_remote_post('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent', [
-            'headers' => [
+        // Gemini ignores max_tokens here (no maxOutputTokens set), matching prior behavior.
+        unset($max_tokens);
+        return $this->request_completion(
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent',
+            [
                 'Content-Type' => 'application/json',
                 'x-goog-api-key' => $api_key,
             ],
-            'body' => json_encode([
+            [
                 'contents' => [
-                    ['parts' => [['text' => $prompt]]]
+                    ['parts' => [['text' => $prompt]]],
                 ],
-            ]),
-            'timeout' => self::AI_REQUEST_TIMEOUT,
-        ]);
-
-        if (is_wp_error($response)) {
-            return $response;
-        }
-
-        $response_code = wp_remote_retrieve_response_code($response);
-        if ($response_code !== 200) {
-            $error_message = __('API request failed with status code: ', 'ai-editorial-calendar') . $response_code;
-        $body = json_decode(wp_remote_retrieve_body($response), true);
-            if (isset($body['error']['message'])) {
-                $error_message = sanitize_text_field($body['error']['message']);
-            }
-            return new WP_Error('api_error', $error_message);
-        }
-
-        $body = json_decode(wp_remote_retrieve_body($response), true);
-
-        if (!is_array($body)) {
-            return new WP_Error('api_error', __('Invalid API response format', 'ai-editorial-calendar'));
-        }
-
-        if (isset($body['error'])) {
-            $error_message = isset($body['error']['message']) ? sanitize_text_field($body['error']['message']) : __('API error', 'ai-editorial-calendar');
-            return new WP_Error('api_error', $error_message);
-        }
-
-        if (!isset($body['candidates']) || !is_array($body['candidates']) || empty($body['candidates'])) {
-            return new WP_Error('api_error', __('Invalid response structure from API', 'ai-editorial-calendar'));
-        }
-
-        $text = $body['candidates'][0]['content']['parts'][0]['text'] ?? '';
-        if (empty($text)) {
-            return new WP_Error('api_error', __('Empty response from API', 'ai-editorial-calendar'));
-        }
-
-        return $text;
-    }
-
-    private function call_grok($api_key, $prompt, $max_tokens = 500) {
-        $response = wp_remote_post('https://api.x.ai/v1/chat/completions', [
-            'headers' => [
-                'Authorization' => 'Bearer ' . $api_key,
-                'Content-Type' => 'application/json',
             ],
-            'body' => json_encode([
-                'model' => 'grok-2', // xAI Grok model
-                'messages' => [
-                    ['role' => 'user', 'content' => $prompt]
-                ],
-                'max_tokens' => $max_tokens,
-            ]),
-            'timeout' => self::AI_REQUEST_TIMEOUT,
-        ]);
-
-        if (is_wp_error($response)) {
-            return $response;
-        }
-
-        $response_code = wp_remote_retrieve_response_code($response);
-        if ($response_code !== 200) {
-            $error_message = __('API request failed with status code: ', 'ai-editorial-calendar') . $response_code;
-            $body = json_decode(wp_remote_retrieve_body($response), true);
-            if (isset($body['error']['message'])) {
-                $error_message = sanitize_text_field($body['error']['message']);
+            function ($body) {
+                return $body['candidates'][0]['content']['parts'][0]['text'] ?? '';
             }
-            return new WP_Error('api_error', $error_message);
-        }
-
-        $body = json_decode(wp_remote_retrieve_body($response), true);
-
-        if (!is_array($body)) {
-            return new WP_Error('api_error', __('Invalid API response format', 'ai-editorial-calendar'));
-        }
-
-        if (isset($body['error'])) {
-            $error_message = isset($body['error']['message']) ? sanitize_text_field($body['error']['message']) : __('API error', 'ai-editorial-calendar');
-            return new WP_Error('api_error', $error_message);
-        }
-
-        if (!isset($body['choices']) || !is_array($body['choices']) || empty($body['choices'])) {
-            return new WP_Error('api_error', __('Invalid response structure from API', 'ai-editorial-calendar'));
-        }
-
-        $content = $body['choices'][0]['message']['content'] ?? '';
-        if (empty($content)) {
-            return new WP_Error('api_error', __('Empty response from API', 'ai-editorial-calendar'));
-        }
-
-        return $content;
+        );
     }
 
     /**
