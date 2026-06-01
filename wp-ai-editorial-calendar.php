@@ -21,6 +21,9 @@ class AI_Editorial_Calendar {
 
     private static $instance = null;
 
+    // Max paid AI calls a single user may make per rolling hour (see audit S1).
+    const AI_RATE_LIMIT_PER_HOUR = 30;
+
     public static function get_instance() {
         if (null === self::$instance) {
             self::$instance = new self();
@@ -105,6 +108,9 @@ class AI_Editorial_Calendar {
         register_setting('aiec_settings', 'aiec_focus_type', [
             'sanitize_callback' => [$this, 'sanitize_short_field']
         ]);
+
+        // Make sure the stored API key never sits in the autoloaded options cache.
+        $this->ensure_api_key_not_autoloaded();
     }
 
     public function sanitize_context_field($value) {
@@ -150,6 +156,61 @@ class AI_Editorial_Calendar {
 
     public function get_api_key() {
         return get_option('aiec_api_key', '');
+    }
+
+    /**
+     * Whether the current user may trigger paid AI calls.
+     *
+     * Gated on publish_posts (Authors/Editors/Admins) rather than edit_posts so
+     * Contributors can't spend the site owner's API credits. See audit S1.
+     *
+     * @return bool
+     */
+    public function user_can_use_ai() {
+        return current_user_can('publish_posts');
+    }
+
+    /**
+     * Per-user hourly throttle for paid AI endpoints.
+     *
+     * Even trusted users shouldn't be able to loop a generation endpoint and run
+     * up an unbounded bill on the owner's provider account, so each user gets a
+     * capped budget per rolling hour. Returns false once the budget is spent.
+     *
+     * @return bool True if the call is allowed, false if the limit is reached.
+     */
+    private function check_ai_rate_limit() {
+        $key = 'aiec_rl_' . get_current_user_id();
+        $count = (int) get_transient($key);
+        if ($count >= self::AI_RATE_LIMIT_PER_HOUR) {
+            return false;
+        }
+        set_transient($key, $count + 1, HOUR_IN_SECONDS);
+        return true;
+    }
+
+    /**
+     * Keep the API key out of the autoloaded options cache.
+     *
+     * The Settings API writes the option on options.php with autoload enabled,
+     * which would pull the secret into memory on every request. We flip it off so
+     * the key is only loaded when actually used. See audit S2.
+     */
+    private function ensure_api_key_not_autoloaded() {
+        if (get_option('aiec_api_key', false) === false) {
+            return; // Nothing stored yet.
+        }
+
+        // WP 6.4+ exposes a direct helper; it no-ops when already correct.
+        if (function_exists('wp_set_option_autoload')) {
+            wp_set_option_autoload('aiec_api_key', false);
+            return;
+        }
+
+        // Fallback for older cores: re-create the option with autoload off.
+        $value = get_option('aiec_api_key');
+        delete_option('aiec_api_key');
+        add_option('aiec_api_key', $value, '', 'no');
     }
 
     /**
@@ -242,52 +303,47 @@ class AI_Editorial_Calendar {
     public function enqueue_assets($hook) {
         // Enqueue for calendar and settings pages
         if (strpos($hook, 'ai-editorial-calendar') !== false || strpos($hook, 'aiec-settings') !== false) {
-        // Enqueue Google Fonts
-        wp_enqueue_style(
-            'aiec-fonts',
-            'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap',
-            [],
-            null
-        );
-        
+            // Self-hosted fonts, no external CDN call from wp-admin (see audit S3)
+            wp_enqueue_style('aiec-fonts', AIEC_PLUGIN_URL . 'assets/css/fonts.css', [], AIEC_VERSION);
             wp_enqueue_style('dashicons');
             wp_enqueue_style('aiec-styles', AIEC_PLUGIN_URL . 'assets/css/calendar.css', ['aiec-fonts', 'dashicons'], AIEC_VERSION);
-        wp_enqueue_script('aiec-calendar', AIEC_PLUGIN_URL . 'assets/js/calendar.js', ['jquery'], AIEC_VERSION, true);
+            wp_enqueue_script('aiec-calendar', AIEC_PLUGIN_URL . 'assets/js/calendar.js', ['jquery'], AIEC_VERSION, true);
 
-        wp_localize_script('aiec-calendar', 'aiecData', [
-            'ajaxUrl' => admin_url('admin-ajax.php'),
-            'adminUrl' => admin_url('admin.php'),
-            'newPostUrl' => admin_url('post-new.php'),
-            'nonce' => wp_create_nonce('aiec_nonce'),
-            'hasApiKey' => !empty($this->get_api_key()),
-            'strings' => [
-                'getSuggestions' => __('Get AI Suggestions', 'ai-editorial-calendar'),
-                'loading' => __('Loading...', 'ai-editorial-calendar'),
-                'noApiKey' => __('Please configure your AI API key in Settings.', 'ai-editorial-calendar'),
-                'months' => [
-                    __('January', 'ai-editorial-calendar'),
-                    __('February', 'ai-editorial-calendar'),
-                    __('March', 'ai-editorial-calendar'),
-                    __('April', 'ai-editorial-calendar'),
-                    __('May', 'ai-editorial-calendar'),
-                    __('June', 'ai-editorial-calendar'),
-                    __('July', 'ai-editorial-calendar'),
-                    __('August', 'ai-editorial-calendar'),
-                    __('September', 'ai-editorial-calendar'),
-                    __('October', 'ai-editorial-calendar'),
-                    __('November', 'ai-editorial-calendar'),
-                    __('December', 'ai-editorial-calendar'),
+            wp_localize_script('aiec-calendar', 'aiecData', [
+                'ajaxUrl' => admin_url('admin-ajax.php'),
+                'adminUrl' => admin_url('admin.php'),
+                'newPostUrl' => admin_url('post-new.php'),
+                'nonce' => wp_create_nonce('aiec_nonce'),
+                'hasApiKey' => !empty($this->get_api_key()),
+                'canUseAi' => $this->user_can_use_ai(),
+                'strings' => [
+                    'getSuggestions' => __('Get AI Suggestions', 'ai-editorial-calendar'),
+                    'loading' => __('Loading...', 'ai-editorial-calendar'),
+                    'noApiKey' => __('Please configure your AI API key in Settings.', 'ai-editorial-calendar'),
+                    'months' => [
+                        __('January', 'ai-editorial-calendar'),
+                        __('February', 'ai-editorial-calendar'),
+                        __('March', 'ai-editorial-calendar'),
+                        __('April', 'ai-editorial-calendar'),
+                        __('May', 'ai-editorial-calendar'),
+                        __('June', 'ai-editorial-calendar'),
+                        __('July', 'ai-editorial-calendar'),
+                        __('August', 'ai-editorial-calendar'),
+                        __('September', 'ai-editorial-calendar'),
+                        __('October', 'ai-editorial-calendar'),
+                        __('November', 'ai-editorial-calendar'),
+                        __('December', 'ai-editorial-calendar'),
+                    ],
                 ],
-            ]
-        ]);
+            ]);
         }
 
         // Enqueue for post editor pages
         if (in_array($hook, ['post.php', 'post-new.php'])) {
             global $post;
             
-            // Only enqueue if this post was created from the calendar
-            if ($post && get_post_meta($post->ID, '_aiec_from_calendar', true)) {
+            // Only enqueue for calendar-created posts when the user may spend AI credits
+            if ($post && $this->user_can_use_ai() && get_post_meta($post->ID, '_aiec_from_calendar', true)) {
                 wp_enqueue_script('aiec-meta-box', AIEC_PLUGIN_URL . 'assets/js/meta-box.js', ['jquery'], AIEC_VERSION, true);
                 
                 $provider = get_option('aiec_ai_provider', 'openai');
@@ -506,20 +562,25 @@ class AI_Editorial_Calendar {
         echo '<div style="background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px; padding: 12px; margin-top: 8px;">';
         echo '<p style="margin: 0; color: #333; line-height: 1.6;">' . esc_html($suggestion) . '</p>';
         echo '</div>';
-        
-        echo '<div style="margin-top: 12px;">';
-        echo '<button type="button" id="aiec-generate-outline" class="button button-primary" data-post-id="' . esc_attr($post->ID) . '">';
-        echo esc_html__('Generate an Outline', 'ai-editorial-calendar');
-        echo '</button>';
-        // Calendar link button
+
         $calendar_url = $this->get_calendar_url();
+        echo '<div style="margin-top: 12px;">';
+
+        // Only users who may spend AI credits get the generate control (see audit S1)
+        if ($this->user_can_use_ai()) {
+            echo '<button type="button" id="aiec-generate-outline" class="button button-primary" data-post-id="' . esc_attr($post->ID) . '">';
+            echo esc_html__('Generate an Outline', 'ai-editorial-calendar');
+            echo '</button>';
+        }
+
+        // Calendar link button
         echo '<a href="' . esc_url($calendar_url) . '" class="button" style="margin-left:6px;" title="' . esc_attr__('Open Editorial Calendar', 'ai-editorial-calendar') . '">';
         echo '<span class="dashicons dashicons-calendar"></span>';
         echo '</a>';
         echo '<span class="spinner" id="aiec-outline-spinner" style="float: none; margin-left: 8px; visibility: hidden;"></span>';
         echo '</div>';
         echo '<div id="aiec-outline-message" style="margin-top: 8px; display: none;"></div>';
-        
+
         wp_nonce_field('aiec_generate_outline', 'aiec_outline_nonce');
     }
 
@@ -539,18 +600,19 @@ class AI_Editorial_Calendar {
         $calendar_url = $this->get_calendar_url();
         $new_post_url = admin_url('post-new.php');
         $has_api_key = !empty($this->get_api_key());
-        
+        $can_use_ai = $this->user_can_use_ai();
+
         echo '<div class="aiec-dashboard-widget">';
         echo '<div class="aiec-dashboard-actions">';
-        
+
         // New Post button
         echo '<a href="' . esc_url($new_post_url) . '" class="button button-primary aiec-dashboard-btn" style="width: 100%; margin-bottom: 10px; text-align: center; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">';
         echo '<span class="dashicons dashicons-edit" style="font-size: 16px; width: 16px; height: 16px; line-height: 1;"></span>';
         echo esc_html__('New Post', 'ai-editorial-calendar');
         echo '</a>';
-        
-        // Get AI Suggestions button (only if API key is configured)
-        if ($has_api_key) {
+
+        // Get AI Suggestions button (only if a key is set and the user may spend it)
+        if ($has_api_key && $can_use_ai) {
             echo '<a href="' . esc_url($calendar_url) . '" class="button button-secondary aiec-dashboard-btn" style="width: 100%; margin-bottom: 10px; text-align: center; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">';
             echo '<span class="dashicons dashicons-lightbulb" style="font-size: 16px; width: 16px; height: 16px; line-height: 1;"></span>';
             echo esc_html__('Get AI Suggestions', 'ai-editorial-calendar');
@@ -785,8 +847,8 @@ class AI_Editorial_Calendar {
     public function ajax_generate_outline() {
         check_ajax_referer('aiec_generate_outline', 'nonce');
 
-        if (!current_user_can('edit_posts')) {
-            wp_send_json_error(__('Unauthorized', 'ai-editorial-calendar'));
+        if (!$this->user_can_use_ai()) {
+            wp_send_json_error(__('You do not have permission to use AI features.', 'ai-editorial-calendar'));
         }
 
         $post_id = intval($_POST['post_id'] ?? 0);
@@ -794,9 +856,13 @@ class AI_Editorial_Calendar {
             wp_send_json_error(__('Invalid post ID', 'ai-editorial-calendar'));
         }
 
-        // Verify user can edit this post
+        // Verify user can edit this specific post
         if (!current_user_can('edit_post', $post_id)) {
             wp_send_json_error(__('You do not have permission to edit this post', 'ai-editorial-calendar'));
+        }
+
+        if (!$this->check_ai_rate_limit()) {
+            wp_send_json_error(__('Rate limit reached. Please wait before generating more outlines.', 'ai-editorial-calendar'));
         }
 
         $api_key = $this->get_api_key();
@@ -925,8 +991,12 @@ class AI_Editorial_Calendar {
     public function ajax_get_suggestions() {
         check_ajax_referer('aiec_nonce', 'nonce');
 
-        if (!current_user_can('edit_posts')) {
-            wp_send_json_error(__('Unauthorized', 'ai-editorial-calendar'));
+        if (!$this->user_can_use_ai()) {
+            wp_send_json_error(__('You do not have permission to use AI features.', 'ai-editorial-calendar'));
+        }
+
+        if (!$this->check_ai_rate_limit()) {
+            wp_send_json_error(__('Rate limit reached. Please wait before requesting more AI suggestions.', 'ai-editorial-calendar'));
         }
 
         $api_key = $this->get_api_key();

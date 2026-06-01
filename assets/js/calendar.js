@@ -604,7 +604,7 @@
         },
 
         getSuggestions: function() {
-            if (!aiecData.hasApiKey) {
+            if (!aiecData.hasApiKey || !aiecData.canUseAi) {
                 alert(aiecData.strings.noApiKey);
                 return;
             }
@@ -867,7 +867,7 @@
         },
 
         getSuggestionsForList: function() {
-            if (!aiecData.hasApiKey) {
+            if (!aiecData.hasApiKey || !aiecData.canUseAi) {
                 alert(aiecData.strings.noApiKey);
                 return;
             }
