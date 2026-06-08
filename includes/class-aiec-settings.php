@@ -151,6 +151,11 @@ class AIEC_Settings {
             return;
         }
 
+        $autoloaded_options = wp_load_alloptions();
+        if (!is_array($autoloaded_options) || !array_key_exists('aiec_api_key', $autoloaded_options)) {
+            return;
+        }
+
         // Fallback for older cores: re-create the option with autoload off.
         $value = get_option('aiec_api_key');
         delete_option('aiec_api_key');

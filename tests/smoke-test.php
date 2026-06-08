@@ -21,6 +21,8 @@ define('HOUR_IN_SECONDS', 3600);
 $GLOBALS['__hooks'] = [];
 $GLOBALS['__settings'] = [];
 $GLOBALS['__options'] = []; // absent options return their default (matches real WP)
+$GLOBALS['__autoload_options'] = [];
+$GLOBALS['__option_rewrites'] = 0;
 $GLOBALS['__transients'] = [];
 
 function plugin_dir_path($f) { return rtrim(dirname($f), '/') . '/'; }
@@ -37,7 +39,19 @@ function set_transient($k, $v, $t) { $GLOBALS['__transients'][$k] = $v; }
 function get_current_user_id() { return 1; }
 function sanitize_text_field($s) { return is_string($s) ? trim($s) : $s; }
 function sanitize_textarea_field($s) { return is_string($s) ? trim($s) : $s; }
-function wp_set_option_autoload($k, $v) { return true; }
+function wp_load_alloptions() { return $GLOBALS['__autoload_options']; }
+function delete_option($k) {
+    unset($GLOBALS['__options'][$k], $GLOBALS['__autoload_options'][$k]);
+    $GLOBALS['__option_rewrites']++;
+    return true;
+}
+function add_option($k, $v, $deprecated = '', $autoload = 'yes') {
+    $GLOBALS['__options'][$k] = $v;
+    if ($autoload === 'yes') {
+        $GLOBALS['__autoload_options'][$k] = $v;
+    }
+    return true;
+}
 
 $fail = 0;
 function ok($cond, $msg) {
@@ -84,6 +98,13 @@ foreach ($GLOBALS['__settings'] as $name => $args) {
     if ($cb && !method_exists($cb[0], $cb[1])) { $badcb[] = $name; }
 }
 ok(empty($badcb), 'all sanitize callbacks resolve' . (empty($badcb) ? '' : ' (broken: ' . implode(',', $badcb) . ')'));
+$GLOBALS['__options']['aiec_api_key'] = 'not-autoloaded';
+AIEC_Settings::register();
+ok($GLOBALS['__option_rewrites'] === 0, 'fallback leaves non-autoloaded API key untouched');
+$GLOBALS['__autoload_options']['aiec_api_key'] = 'autoloaded';
+AIEC_Settings::register();
+ok($GLOBALS['__option_rewrites'] === 1 && !isset($GLOBALS['__autoload_options']['aiec_api_key']), 'fallback rewrites autoloaded API key once');
+unset($GLOBALS['__options']['aiec_api_key']);
 
 // 6. Delegation helpers on the main class work.
 $inst = AI_Editorial_Calendar::get_instance();

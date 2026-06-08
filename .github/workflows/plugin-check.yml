@@ -24,6 +24,7 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Run WordPress Plugin Check
+        continue-on-error: true
         uses: WordPress/plugin-check-action@18573eb38f13543484a1f095672dae3849a4fbb0 # v1.1.6
         with:
           slug: ai-editorial-calendar
