@@ -3,7 +3,11 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-$has_api_key = !empty(AI_Editorial_Calendar::get_instance()->get_api_key());
+$aiec_plugin = AI_Editorial_Calendar::get_instance();
+$has_api_key = !empty($aiec_plugin->get_api_key());
+// Whether to surface AI spend controls: a key must exist and the user must be
+// allowed to spend it (publish_posts). See audit S1.
+$can_use_ai = $has_api_key && $aiec_plugin->user_can_use_ai();
 ?>
 <div class="wrap aiec-wrap">
     <div class="aiec-header">
@@ -103,7 +107,7 @@ $has_api_key = !empty(AI_Editorial_Calendar::get_instance()->get_api_key());
             </div>
             <div class="aiec-list-actions">
                 <button type="button" class="aiec-btn aiec-btn-primary aiec-new-post-list" data-tooltip="<?php esc_attr_e('Create a new post without AI suggestions', 'ai-editorial-calendar'); ?>"><?php esc_html_e('New Post', 'ai-editorial-calendar'); ?></button>
-                <?php if ($has_api_key): ?>
+                <?php if ($can_use_ai): ?>
                     <div class="aiec-suggestions-inline">
                     <button type="button" class="aiec-btn aiec-get-suggestions-list" data-tooltip="<?php esc_attr_e('Get AI suggestions for the selected date', 'ai-editorial-calendar'); ?>"><?php esc_html_e('Get AI Suggestions', 'ai-editorial-calendar'); ?></button>
                         <?php echo $aiec_date_picker; ?>
@@ -150,7 +154,7 @@ $has_api_key = !empty(AI_Editorial_Calendar::get_instance()->get_api_key());
                 <div class="aiec-modal-posts"></div>
                 <div class="aiec-modal-actions">
                     <a href="#" class="aiec-btn aiec-btn-primary aiec-new-post" data-tooltip="<?php esc_attr_e('Create a new post without AI suggestions', 'ai-editorial-calendar'); ?>"><?php esc_html_e('New Post', 'ai-editorial-calendar'); ?></a>
-                    <?php if ($has_api_key): ?>
+                    <?php if ($can_use_ai): ?>
                         <button type="button" class="aiec-btn aiec-get-suggestions" data-tooltip="<?php esc_attr_e('Get AI suggestions for this date', 'ai-editorial-calendar'); ?>"><?php esc_html_e('Get AI Suggestions', 'ai-editorial-calendar'); ?></button>
                     <?php endif; ?>
                 </div>

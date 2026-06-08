@@ -508,8 +508,8 @@
 
                     const $post = $(`<div class="aiec-post ${statusClass} ${draggableClass}"
                         data-post-id="${post.id}"
-                        data-edit-url="${post.editUrl || ''}"
-                        data-full-title="${this.escapeHtml(post.title)}">
+                        data-edit-url="${this.escapeAttr(post.editUrl || '')}"
+                        data-full-title="${this.escapeAttr(post.title)}">
                         ${this.escapeHtml(post.title)}
                     </div>`);
 
@@ -524,9 +524,13 @@
         },
 
         escapeHtml: function(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+            return window.aiecUtils.escapeHtml(text);
+        },
+
+        // Attribute-safe escaping for values interpolated into attributes (URLs,
+        // titles in data-* attributes). See audit S6.
+        escapeAttr: function(text) {
+            return window.aiecUtils.escapeAttr(text);
         },
 
         openModal: function(date) {
@@ -547,7 +551,7 @@
                 dayPosts.forEach(post => {
                     postsHtml += `<li class="aiec-modal-post-item" data-post-id="${post.id}">
                         <span class="aiec-post-status aiec-status-${post.status}">${post.status}</span>
-                        <a href="${post.editUrl}" target="_blank" class="aiec-modal-post-link">${this.escapeHtml(post.title)}</a>
+                        <a href="${this.escapeAttr(post.editUrl)}" target="_blank" class="aiec-modal-post-link">${this.escapeHtml(post.title)}</a>
                         <button type="button" class="aiec-delete-post" data-post-id="${post.id}" title="Trash post">
                             <span class="dashicons dashicons-trash"></span>
                         </button>
@@ -604,6 +608,11 @@
         },
 
         getSuggestions: function() {
+            if (!aiecData.canUseAi) {
+                alert(aiecData.strings.noAiPermission || aiecData.strings.noApiKey);
+                return;
+            }
+
             if (!aiecData.hasApiKey) {
                 alert(aiecData.strings.noApiKey);
                 return;
@@ -792,13 +801,13 @@
                             <div class="aiec-list-time">${timeStr}</div>
                         </td>
                         <td class="aiec-col-title">
-                            <a href="${post.editUrl}" target="_blank" data-full-title="${this.escapeHtml(post.title)}">${this.escapeHtml(post.title)}</a>
+                            <a href="${this.escapeAttr(post.editUrl)}" target="_blank" data-full-title="${this.escapeAttr(post.title)}">${this.escapeHtml(post.title)}</a>
                         </td>
                         <td class="aiec-col-status">
                             <span class="aiec-status-badge ${statusClass}">${statusLabel}</span>
                         </td>
                         <td class="aiec-col-actions">
-                            <a href="${post.editUrl}" target="_blank" class="aiec-btn aiec-btn-small">Edit</a>
+                            <a href="${this.escapeAttr(post.editUrl)}" target="_blank" class="aiec-btn aiec-btn-small">Edit</a>
                             <button type="button" class="aiec-delete-post aiec-btn-icon" data-post-id="${post.id}" title="Trash post">
                                 <span class="dashicons dashicons-trash"></span>
                             </button>
@@ -867,6 +876,11 @@
         },
 
         getSuggestionsForList: function() {
+            if (!aiecData.canUseAi) {
+                alert(aiecData.strings.noAiPermission || aiecData.strings.noApiKey);
+                return;
+            }
+
             if (!aiecData.hasApiKey) {
                 alert(aiecData.strings.noApiKey);
                 return;
