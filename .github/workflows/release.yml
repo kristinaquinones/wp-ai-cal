@@ -1,0 +1,71 @@
+name: Release package
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Package plugin ZIP
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Verify tag matches plugin version
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          plugin_version="$(sed -n 's/^ \* Version: \([0-9][0-9.]*\)$/\1/p' wp-ai-editorial-calendar.php)"
+          constant_version="$(sed -n "s/^define('AIEC_VERSION', '\([^']*\)');$/\1/p" wp-ai-editorial-calendar.php)"
+          tag_version="${TAG_NAME#v}"
+
+          test -n "$plugin_version"
+          test "$tag_version" = "$plugin_version"
+          test "$plugin_version" = "$constant_version"
+
+      - name: Build installable ZIP
+        run: |
+          set -euo pipefail
+
+          plugin_dir="ai-editorial-calendar"
+          package_dir="$RUNNER_TEMP/package/$plugin_dir"
+          zip_path="$RUNNER_TEMP/ai-editorial-calendar.zip"
+
+          mkdir -p "$package_dir"
+          rsync -a \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='.claude/' \
+            --exclude='.cursorrules' \
+            --exclude='.gitignore' \
+            --exclude='AGENTS.md' \
+            --exclude='CLAUDE.md' \
+            --exclude='tests/' \
+            --exclude='*_summary.md' \
+            --exclude='*-summary.md' \
+            --exclude='*.zip' \
+            --exclude='dist/' \
+            --exclude='build/' \
+            ./ "$package_dir/"
+
+          cd "$RUNNER_TEMP/package"
+          zip -r "$zip_path" "$plugin_dir"
+          echo "zip_path=$zip_path" >> "$GITHUB_ENV"
+
+      - name: Create draft GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: gh release create "$TAG_NAME" "$zip_path" --draft --verify-tag --title "$TAG_NAME"

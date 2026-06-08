@@ -1,0 +1,38 @@
+name: WordPress Plugin Check
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: plugin-check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plugin-check:
+    name: Plugin Check advisory
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Run WordPress Plugin Check
+        uses: WordPress/plugin-check-action@18573eb38f13543484a1f095672dae3849a4fbb0 # v1.1.6
+        with:
+          slug: ai-editorial-calendar
+          exclude-directories: |
+            .claude
+            .github
+            tests
+          exclude-files: |
+            .cursorrules
+            AGENTS.md
+            CLAUDE.md
+          ignore-warnings: true
