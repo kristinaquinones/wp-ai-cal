@@ -45,6 +45,8 @@ Extend `tests/smoke-test.php` when changing hooks, callbacks, access policy, rat
 
 After each meaningful batch of work, and before committing, write a concise summary file using the format `YYYY_MM_DD-summary.md`. Summaries should capture what changed, why it changed, validation performed, and any follow-up risks or open items. Keep them factual and short enough to scan before a commit.
 
+Every summary must also include an ELI-16 section: two or three sentences in plain language that a smart 16-year-old could follow, explaining what changed and why it matters. No jargon, no internal shorthand.
+
 ## Security and configuration
 
 Every AJAX handler must verify a nonce, check the appropriate capability, sanitize input, and escape output. Use WordPress HTTP and options APIs. Keep API keys out of autoloaded options, logs, fixtures, and commits. Preserve the existing paid-AI access policy and request rate limits unless a change explicitly requires otherwise.
