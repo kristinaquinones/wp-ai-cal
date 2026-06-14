@@ -3,7 +3,7 @@
  * Plugin Name: AI Editorial Calendar
  * Plugin URI: https://github.com/kristinaquiones/wp-ai-cal
  * Description: A lightweight editorial calendar with personalized AI content suggestions. Connect your own AI account (OpenAI, Anthropic, Google, or xAI Grok).
- * Version: 1.1.0
+ * Version: 1.1.1
  * Author: Kristina Quinones
  * License: GPL v2 or later
  * Text Domain: ai-editorial-calendar
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('AIEC_VERSION', '1.1.0');
+define('AIEC_VERSION', '1.1.1');
 define('AIEC_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AIEC_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -123,6 +123,34 @@ class AI_Editorial_Calendar {
     }
 
     /**
+     * Shared gate for paid AI endpoints.
+     *
+     * Confirms the current user may spend AI credits, that they are under the
+     * per-hour budget, and that an API key is configured. Sends a JSON error and
+     * halts the request on any failure. Does NOT charge the rate limit; callers
+     * must invoke AIEC_Settings::record_ai_call() after a successful provider call
+     * so failed calls don't burn quota.
+     *
+     * @return string The configured API key.
+     */
+    private function require_ai_access() {
+        if (!$this->user_can_use_ai()) {
+            wp_send_json_error(__('You do not have permission to use AI features.', 'ai-editorial-calendar'));
+        }
+
+        if (!AIEC_Settings::check_ai_rate_limit()) {
+            wp_send_json_error(__('Rate limit reached. Please wait before making more AI requests.', 'ai-editorial-calendar'));
+        }
+
+        $api_key = $this->get_api_key();
+        if (empty($api_key)) {
+            wp_send_json_error(__('API key not configured', 'ai-editorial-calendar'));
+        }
+
+        return $api_key;
+    }
+
+    /**
      * Get the calendar page URL
      *
      * @return string Calendar admin URL
@@ -138,13 +166,8 @@ class AI_Editorial_Calendar {
      * @return string Provider display name
      */
     private function get_provider_name($provider) {
-        $provider_names = [
-            'openai' => 'OpenAI',
-            'anthropic' => 'Anthropic',
-            'google' => 'Google',
-            'grok' => 'xAI Grok'
-        ];
-        return $provider_names[$provider] ?? 'OpenAI';
+        $providers = AIEC_Settings::get_providers();
+        return $providers[$provider] ?? 'OpenAI';
     }
 
     /**
@@ -614,8 +637,11 @@ class AI_Editorial_Calendar {
             wp_send_json_error(__('Unauthorized', 'ai-editorial-calendar'));
         }
 
-        $page = intval($_POST['page'] ?? 1);
-        $per_page = intval($_POST['per_page'] ?? 20);
+        // Clamp to positive bounds so a client can't request -1 (unlimited) or a
+        // huge page size and exhaust memory (mirrors the CALENDAR_MAX_POSTS cap in
+        // ajax_get_posts, see audit S5).
+        $page = max(1, intval($_POST['page'] ?? 1));
+        $per_page = min(max(1, intval($_POST['per_page'] ?? 20)), self::CALENDAR_MAX_POSTS);
         $search = sanitize_text_field(wp_unslash($_POST['search'] ?? ''));
         $status_filter = sanitize_text_field(wp_unslash($_POST['status'] ?? ''));
 
@@ -761,10 +787,6 @@ class AI_Editorial_Calendar {
     public function ajax_generate_outline() {
         check_ajax_referer('aiec_generate_outline', 'nonce');
 
-        if (!$this->user_can_use_ai()) {
-            wp_send_json_error(__('You do not have permission to use AI features.', 'ai-editorial-calendar'));
-        }
-
         $post_id = intval($_POST['post_id'] ?? 0);
         if (!$post_id) {
             wp_send_json_error(__('Invalid post ID', 'ai-editorial-calendar'));
@@ -775,14 +797,7 @@ class AI_Editorial_Calendar {
             wp_send_json_error(__('You do not have permission to edit this post', 'ai-editorial-calendar'));
         }
 
-        if (!AIEC_Settings::check_ai_rate_limit()) {
-            wp_send_json_error(__('Rate limit reached. Please wait before generating more outlines.', 'ai-editorial-calendar'));
-        }
-
-        $api_key = $this->get_api_key();
-        if (empty($api_key)) {
-            wp_send_json_error(__('API key not configured', 'ai-editorial-calendar'));
-        }
+        $api_key = $this->require_ai_access();
 
         $post = get_post($post_id);
         if (!$post) {
@@ -809,6 +824,9 @@ class AI_Editorial_Calendar {
             wp_send_json_error($outline->get_error_message());
         }
 
+        // Charge the budget now that the paid call actually succeeded.
+        AIEC_Settings::record_ai_call();
+
         // Clean the outline: strip HTML, markdown, and extraneous characters
         $outline = AIEC_Prompt_Builder::clean_outline($outline);
 
@@ -834,18 +852,7 @@ class AI_Editorial_Calendar {
     public function ajax_get_suggestions() {
         check_ajax_referer('aiec_nonce', 'nonce');
 
-        if (!$this->user_can_use_ai()) {
-            wp_send_json_error(__('You do not have permission to use AI features.', 'ai-editorial-calendar'));
-        }
-
-        if (!AIEC_Settings::check_ai_rate_limit()) {
-            wp_send_json_error(__('Rate limit reached. Please wait before requesting more AI suggestions.', 'ai-editorial-calendar'));
-        }
-
-        $api_key = $this->get_api_key();
-        if (empty($api_key)) {
-            wp_send_json_error(__('API key not configured', 'ai-editorial-calendar'));
-        }
+        $api_key = $this->require_ai_access();
 
         $provider = get_option('aiec_ai_provider', 'openai');
         $context = get_option('aiec_site_context', '');
@@ -872,6 +879,9 @@ class AI_Editorial_Calendar {
             wp_send_json_error($suggestions->get_error_message());
         }
 
+        // Charge the budget now that the paid call actually succeeded.
+        AIEC_Settings::record_ai_call();
+
         wp_send_json_success($suggestions);
     }
 
@@ -885,6 +895,11 @@ class AI_Editorial_Calendar {
 
         if (!current_user_can('manage_options')) {
             wp_send_json_error(__('Unauthorized', 'ai-editorial-calendar'));
+        }
+
+        // This makes a real (billable) provider call, so it shares the AI budget.
+        if (!AIEC_Settings::check_ai_rate_limit()) {
+            wp_send_json_error(__('Rate limit reached. Please wait before making more AI requests.', 'ai-editorial-calendar'));
         }
 
         $api_key = $this->get_api_key();
@@ -919,6 +934,8 @@ class AI_Editorial_Calendar {
                 $health_status['message'] = sanitize_text_field($error_message);
             }
         } else {
+            // Charge the budget only for the call that actually succeeded.
+            AIEC_Settings::record_ai_call();
             $health_status['status'] = 'available';
             $health_status['message'] = __('Model is available and responding', 'ai-editorial-calendar');
         }

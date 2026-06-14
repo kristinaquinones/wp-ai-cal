@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-06-14
+
+Follow-up fixes from a code review of the 1.1.0 refactor.
+
+### Security
+
+- Bound `per_page` (and `page`) in the "all posts" AJAX endpoint to
+  `CALENDAR_MAX_POSTS`, so a client can no longer request `-1` (unlimited) or a
+  huge page size and exhaust memory. The sibling calendar endpoint was already
+  capped (S5); this closes the same gap on the list endpoint.
+- Apply the per-user AI rate limit to the model health-check endpoint, which made
+  a real billable provider call with no budget gate.
+
+### Fixed
+
+- Rate limiter now uses a fixed (non-sliding) hourly window and only charges quota
+  after a provider call actually succeeds. Previously the window's expiry was
+  re-armed on every call (so it never aged out for steady users) and failed calls
+  still burned quota.
+- Outline cleanup no longer destroys a first heading that contains a colon (for
+  example `## Introduction:`) when the model output begins with a prefix phrase;
+  the prefix match is now constrained to its own line.
+- Enforce the shared max-token cap for Google/Gemini via `maxOutputTokens`, so the
+  cost bound now applies to every provider rather than three of four.
+
+### Internal
+
+- Consolidate the four-provider roster (keys + display labels) into a single
+  `AIEC_Settings::get_providers()` source of truth, used by the sanitizer, the
+  settings dropdown, the provider-name lookup, and the client dispatch.
+- Run the API-key autoload hardening only on the key's save hooks instead of on
+  every `admin_init`, avoiding a `wp_load_alloptions()` scan on unrelated pages.
+- Extract a shared `require_ai_access()` gate for the paid AI AJAX handlers.
+
 ## [1.1.0] - 2026-05-31
 
 Security, privacy, and code-quality remediation from a full plugin audit. The

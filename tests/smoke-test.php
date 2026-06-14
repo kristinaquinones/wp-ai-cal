@@ -98,11 +98,16 @@ foreach ($GLOBALS['__settings'] as $name => $args) {
     if ($cb && !method_exists($cb[0], $cb[1])) { $badcb[] = $name; }
 }
 ok(empty($badcb), 'all sanitize callbacks resolve' . (empty($badcb) ? '' : ' (broken: ' . implode(',', $badcb) . ')'));
+// API-key autoload hardening now runs only on the key's save hooks (add/update_option),
+// not on every admin_init. Exercise the public callback directly.
+ok(is_callable(['AIEC_Settings', 'ensure_api_key_not_autoloaded']), 'autoload hardener is public/callable');
+$autoload_hooks = array_filter($GLOBALS['__hooks'], fn($h) => in_array($h[1], ['add_option_aiec_api_key', 'update_option_aiec_api_key'], true));
+ok(count($autoload_hooks) === 2, 'register() wires autoload hardener to the key save hooks');
 $GLOBALS['__options']['aiec_api_key'] = 'not-autoloaded';
-AIEC_Settings::register();
+AIEC_Settings::ensure_api_key_not_autoloaded();
 ok($GLOBALS['__option_rewrites'] === 0, 'fallback leaves non-autoloaded API key untouched');
 $GLOBALS['__autoload_options']['aiec_api_key'] = 'autoloaded';
-AIEC_Settings::register();
+AIEC_Settings::ensure_api_key_not_autoloaded();
 ok($GLOBALS['__option_rewrites'] === 1 && !isset($GLOBALS['__autoload_options']['aiec_api_key']), 'fallback rewrites autoloaded API key once');
 unset($GLOBALS['__options']['aiec_api_key']);
 
@@ -111,11 +116,39 @@ $inst = AI_Editorial_Calendar::get_instance();
 ok($inst->get_api_key() === '', 'get_api_key() delegates (empty default)');
 ok($inst->user_can_use_ai() === true, 'user_can_use_ai() delegates');
 
-// 7. Access policy + rate limit.
+// 7. Access policy + rate limit (read-only gate + charge-on-success).
 ok(AIEC_Settings::user_can_use_ai() === true, 'Settings::user_can_use_ai true');
+
+// Charge on success: gate allows exactly the cap when every allowed call is recorded.
+$GLOBALS['__transients'] = [];
 $allowed = 0;
-for ($i = 0; $i < 35; $i++) { if (AIEC_Settings::check_ai_rate_limit()) { $allowed++; } }
+for ($i = 0; $i < 35; $i++) {
+    if (AIEC_Settings::check_ai_rate_limit()) {
+        $allowed++;
+        AIEC_Settings::record_ai_call(); // simulate a successful paid call
+    }
+}
 ok($allowed === AIEC_Settings::AI_RATE_LIMIT_PER_HOUR, "rate limit caps at " . AIEC_Settings::AI_RATE_LIMIT_PER_HOUR . " (allowed $allowed)");
+
+// Gate is read-only: checking (e.g. on failed calls) never consumes quota.
+$GLOBALS['__transients'] = [];
+for ($i = 0; $i < 50; $i++) { AIEC_Settings::check_ai_rate_limit(); }
+ok(AIEC_Settings::check_ai_rate_limit() === true, 'check without record never burns quota');
+
+// Fixed window: an expired window (old start) resets rather than staying full.
+$GLOBALS['__transients']['aiec_rl_1'] = ['start' => time() - (HOUR_IN_SECONDS + 60), 'count' => 999];
+ok(AIEC_Settings::check_ai_rate_limit() === true, 'expired rate-limit window resets');
+$GLOBALS['__transients'] = [];
+
+// Provider roster is the single source of truth (sanitizer + dropdown + dispatch read it).
+$providers = AIEC_Settings::get_providers();
+ok(is_array($providers) && count($providers) === 4, 'get_providers returns 4 providers (got ' . count($providers) . ')');
+$roster_ok = true;
+foreach (array_keys($providers) as $pk) {
+    if (AIEC_Settings::sanitize_provider($pk) !== $pk) { $roster_ok = false; }
+}
+ok($roster_ok, 'every roster key passes sanitize_provider');
+ok(AIEC_Settings::sanitize_provider('bogus') === 'openai', 'unknown provider falls back to openai');
 
 // 8. Prompt builder pure helpers run and return non-empty strings.
 $sugg = AIEC_Prompt_Builder::build_suggestions('A cooking blog', 'casual', 'politics', ['Pasta 101', 'Bread basics'], '2026-06-15');
@@ -125,6 +158,9 @@ $out = AIEC_Prompt_Builder::build_outline('My Title', 'A description', 'context'
 ok(is_string($out) && strpos($out, '## Introduction') !== false, 'build_outline returns guide');
 $clean = AIEC_Prompt_Builder::clean_outline("Here is the outline:\n\n## Introduction\n**bold** text\n");
 ok(strpos($clean, '##') !== false && strpos($clean, '**') === false, 'clean_outline strips markdown emphasis');
+// A trigger word on its own line must not swallow a later heading that contains a colon.
+$clean2 = AIEC_Prompt_Builder::clean_outline("Here is a guide.\n## Introduction: Hook the reader\nBody");
+ok(strpos($clean2, 'Introduction') !== false, 'clean_outline keeps a colon heading after a trigger word');
 
 echo "\n" . ($fail === 0 ? "ALL SMOKE CHECKS PASSED" : "$fail CHECK(S) FAILED") . "\n";
 exit($fail === 0 ? 0 : 1);
