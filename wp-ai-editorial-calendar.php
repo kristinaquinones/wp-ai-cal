@@ -897,15 +897,9 @@ class AI_Editorial_Calendar {
             wp_send_json_error(__('Unauthorized', 'ai-editorial-calendar'));
         }
 
-        // This makes a real (billable) provider call, so it shares the AI budget.
-        if (!AIEC_Settings::check_ai_rate_limit()) {
-            wp_send_json_error(__('Rate limit reached. Please wait before making more AI requests.', 'ai-editorial-calendar'));
-        }
-
-        $api_key = $this->get_api_key();
-        if (empty($api_key)) {
-            wp_send_json_error(__('API key not configured', 'ai-editorial-calendar'));
-        }
+        // This makes a real (billable) provider call, so it shares the same AI
+        // budget/api-key gate as the other paid endpoints.
+        $api_key = $this->require_ai_access();
 
         $provider = get_option('aiec_ai_provider', 'openai');
         $health_status = [
