@@ -197,8 +197,10 @@ class AIEC_Prompt_Builder {
         $outline = preg_replace('/\n{3,}/', "\n\n", $outline); // Max 2 consecutive newlines
         $outline = preg_replace('/[ \t]+/', ' ', $outline); // Multiple spaces to single space
 
-        // Remove common AI response prefixes/suffixes
-        $outline = preg_replace('/^(Here\'s|Here is|Below is|I\'ll create|I\'ve created|This outline|The outline|This writing guide|The writing guide)[\s\S]*?:\s*/i', '', $outline);
+        // Remove common AI response prefixes/suffixes.
+        // Match only within the first line so a later heading like "## Introduction:"
+        // can't be swallowed up to its colon ([^\n]*? instead of [\s\S]*?).
+        $outline = preg_replace('/^(Here\'s|Here is|Below is|I\'ll create|I\'ve created|This outline|The outline|This writing guide|The writing guide)[^\n]*?:[ \t]*\n*/i', '', $outline);
         $outline = preg_replace('/\n*(Note:|Remember:|Tip:)[\s\S]*$/i', '', $outline);
 
         // Trim whitespace

@@ -186,8 +186,6 @@ class AIEC_AI_Client {
     }
 
     private function call_google($api_key, $prompt, $max_tokens = 500) {
-        // Gemini ignores max_tokens here (no maxOutputTokens set), matching prior behavior.
-        unset($max_tokens);
         return $this->request_completion(
             'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent',
             [
@@ -197,6 +195,10 @@ class AIEC_AI_Client {
             [
                 'contents' => [
                     ['parts' => [['text' => $prompt]]],
+                ],
+                // Honor the shared max-token cap (MAX_TOKENS_CAP) like the other providers.
+                'generationConfig' => [
+                    'maxOutputTokens' => $max_tokens,
                 ],
             ],
             function ($body) {
@@ -241,6 +243,10 @@ class AIEC_AI_Client {
 
     /**
      * Make API call with retry logic for transient failures.
+     *
+     * The default is a single retry (2 attempts total) on purpose: retries use
+     * sleep(), which blocks the PHP worker, so the budget is kept small to bound
+     * worst-case request time. See audit S4.
      *
      * @param callable $api_call    Function that makes the API call
      * @param int      $max_retries Maximum number of retry attempts

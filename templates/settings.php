@@ -33,10 +33,12 @@ if (!defined('ABSPATH')) {
                 </th>
                 <td>
                     <select name="aiec_ai_provider" id="aiec_ai_provider">
-                        <option value="openai" <?php selected(get_option('aiec_ai_provider'), 'openai'); ?>>OpenAI (GPT)</option>
-                        <option value="anthropic" <?php selected(get_option('aiec_ai_provider'), 'anthropic'); ?>>Anthropic (Claude)</option>
-                        <option value="google" <?php selected(get_option('aiec_ai_provider'), 'google'); ?>>Google (Gemini)</option>
-                        <option value="grok" <?php selected(get_option('aiec_ai_provider'), 'grok'); ?>>xAI Grok</option>
+                        <?php
+                        $aiec_selected_provider = get_option('aiec_ai_provider');
+                        foreach (AIEC_Settings::get_providers() as $aiec_provider_key => $aiec_provider_label) :
+                            ?>
+                            <option value="<?php echo esc_attr($aiec_provider_key); ?>" <?php selected($aiec_selected_provider, $aiec_provider_key); ?>><?php echo esc_html($aiec_provider_label); ?></option>
+                        <?php endforeach; ?>
                     </select>
                     <p class="description"><?php esc_html_e('Select your AI provider. You\'ll need an API key from your chosen provider.', 'ai-editorial-calendar'); ?></p>
                 </td>

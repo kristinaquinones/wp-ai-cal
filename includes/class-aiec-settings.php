@@ -50,8 +50,11 @@ class AIEC_Settings {
             'sanitize_callback' => [self::class, 'sanitize_short_field']
         ]);
 
-        // Make sure the stored API key never sits in the autoloaded options cache.
-        self::ensure_api_key_not_autoloaded();
+        // Keep the stored API key out of the autoloaded options cache. Run this only
+        // when the key is actually written, not on every admin_init, so we never pay
+        // a wp_load_alloptions() scan on unrelated admin pages.
+        add_action('add_option_aiec_api_key', [self::class, 'ensure_api_key_not_autoloaded']);
+        add_action('update_option_aiec_api_key', [self::class, 'ensure_api_key_not_autoloaded']);
     }
 
     public static function sanitize_context_field($value) {
@@ -81,9 +84,26 @@ class AIEC_Settings {
         return mb_substr($value, 0, 150);
     }
 
+    /**
+     * Canonical AI provider roster: provider key => display label.
+     *
+     * Single source of truth for which providers exist and what they are called.
+     * Used by sanitize_provider(), the settings dropdown, the provider-name lookup,
+     * and the AI client dispatch, so a provider is added/renamed in exactly one place.
+     *
+     * @return array<string,string>
+     */
+    public static function get_providers() {
+        return [
+            'openai'    => 'OpenAI',
+            'anthropic' => 'Anthropic',
+            'google'    => 'Google',
+            'grok'      => 'xAI Grok',
+        ];
+    }
+
     public static function sanitize_provider($value) {
-        $allowed = ['openai', 'anthropic', 'google', 'grok'];
-        return in_array($value, $allowed, true) ? $value : 'openai';
+        return array_key_exists($value, self::get_providers()) ? $value : 'openai';
     }
 
     public static function sanitize_api_key($value) {
@@ -115,22 +135,74 @@ class AIEC_Settings {
     }
 
     /**
-     * Per-user hourly throttle for paid AI endpoints.
+     * Transient key holding the current user's rate-limit window.
+     *
+     * @return string
+     */
+    private static function rate_limit_key() {
+        return 'aiec_rl_' . get_current_user_id();
+    }
+
+    /**
+     * Read the current user's rate-limit window, normalizing legacy/expired data.
+     *
+     * The window is a fixed (non-sliding) hour: it stores the start timestamp and
+     * the number of calls made since then. Once the hour from `start` elapses the
+     * window is treated as empty.
+     *
+     * @return array{start:int,count:int}
+     */
+    private static function get_rate_limit_window() {
+        $stored = get_transient(self::rate_limit_key());
+        $now = time();
+
+        if (!is_array($stored) || !isset($stored['start'], $stored['count'])) {
+            return ['start' => $now, 'count' => 0];
+        }
+
+        // Fixed window: if the hour from start has elapsed, start fresh.
+        if (($now - (int) $stored['start']) >= HOUR_IN_SECONDS) {
+            return ['start' => $now, 'count' => 0];
+        }
+
+        return ['start' => (int) $stored['start'], 'count' => (int) $stored['count']];
+    }
+
+    /**
+     * Whether the current user may make another paid AI call (read-only gate).
      *
      * Even trusted users shouldn't be able to loop a generation endpoint and run
      * up an unbounded bill on the owner's provider account, so each user gets a
-     * capped budget per rolling hour. Returns false once the budget is spent.
+     * capped budget per fixed hour. This only reads the counter; callers must
+     * invoke record_ai_call() after a successful call so failed calls don't burn
+     * quota. See audit S1.
      *
      * @return bool True if the call is allowed, false if the limit is reached.
      */
     public static function check_ai_rate_limit() {
-        $key = 'aiec_rl_' . get_current_user_id();
-        $count = (int) get_transient($key);
-        if ($count >= self::AI_RATE_LIMIT_PER_HOUR) {
-            return false;
+        $window = self::get_rate_limit_window();
+        return $window['count'] < self::AI_RATE_LIMIT_PER_HOUR;
+    }
+
+    /**
+     * Charge one call against the current user's rate-limit window.
+     *
+     * Call this only after a paid provider call actually succeeds. The transient
+     * TTL is anchored to the window start (not re-armed each call) so the hour
+     * does not slide. WordPress transients are not atomic, so a tightly concurrent
+     * burst can over-count slightly; the post-success ordering bounds the cost.
+     */
+    public static function record_ai_call() {
+        $window = self::get_rate_limit_window();
+        $window['count']++;
+
+        // Anchor TTL to the fixed window end so the hour doesn't slide forward.
+        $remaining = HOUR_IN_SECONDS - (time() - $window['start']);
+        if ($remaining < 1) {
+            $remaining = HOUR_IN_SECONDS;
         }
-        set_transient($key, $count + 1, HOUR_IN_SECONDS);
-        return true;
+
+        set_transient(self::rate_limit_key(), $window, $remaining);
     }
 
     /**
@@ -139,8 +211,10 @@ class AIEC_Settings {
      * The Settings API writes the option on options.php with autoload enabled,
      * which would pull the secret into memory on every request. We flip it off so
      * the key is only loaded when actually used. See audit S2.
+     *
+     * Public so it can be attached to the add_option/update_option hooks.
      */
-    private static function ensure_api_key_not_autoloaded() {
+    public static function ensure_api_key_not_autoloaded() {
         if (get_option('aiec_api_key', false) === false) {
             return; // Nothing stored yet.
         }
