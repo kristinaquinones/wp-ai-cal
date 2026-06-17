@@ -637,9 +637,9 @@ class AI_Editorial_Calendar {
             wp_send_json_error(__('Unauthorized', 'ai-editorial-calendar'));
         }
 
-        // Clamp to positive bounds so a client can't request -1 (unlimited) or a
-        // huge page size and exhaust memory (mirrors the CALENDAR_MAX_POSTS cap in
-        // ajax_get_posts, see audit S5).
+        // Clamp page to >= 1 and per_page to [1, CALENDAR_MAX_POSTS] so a client
+        // can't request a -1 (unlimited) or huge per_page and exhaust memory
+        // (mirrors the CALENDAR_MAX_POSTS cap in ajax_get_posts, see audit S5).
         $page = max(1, intval($_POST['page'] ?? 1));
         $per_page = min(max(1, intval($_POST['per_page'] ?? 20)), self::CALENDAR_MAX_POSTS);
         $search = sanitize_text_field(wp_unslash($_POST['search'] ?? ''));
